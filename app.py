@@ -77,75 +77,80 @@ def add_log(text):
     st.session_state.log.insert(0, f"【T{st.session_state.turn}】{text}")
 
 # 改善されたノードラベルの生成関数
+# --- 修正版：ノードのラベル生成関数（HTMLタグを使わず \n で改行） ---
 def generate_improved_node_label(node_id, info):
     owner = info["owner"]
     troops = info["troops"]
     economy = info["economy"]
     
-    # 国家ごとのアイコン
+    # 国家ごとのアイコンをシンプルに付与
     owner_icon = "👤" if owner == "プレイヤー(赤)" else "🤖" if owner.startswith("AI") else "🏳️"
     
-    # 改良されたラベルテキスト (HTMLを活用)
-    label = f"""
-    <div style="text-align: center; color: white;">
-        <span style="font-size: 16px; font-weight: bold;">{node_id}</span><br>
-        <span style="font-size: 12px; color: {COLORS[owner]};">{owner_icon} {owner}</span><br>
-        <span style="font-size: 14px;">⚔️ 兵: <span style="font-weight: bold;">{troops}</span></span> | 
-        <span style="font-size: 14px;">💰 経: <span style="font-weight: bold;">{economy}</span></span>
-    </div>
-    """
+    # \n を使って改行。Pyvisはこれなら正しく解釈します
+    label = f"{node_id}\n{owner_icon}{owner}\n⚔️兵: {troops} | 💰経: {economy}"
     return label
-
 # 改善されたホバー情報の生成関数
 def generate_hover_title(node_id, info):
+    """マウスホバー時に表示される詳細情報のHTMLを生成（Pyvisのtitle属性用）"""
     owner = info["owner"]
     troops = info["troops"]
     economy = info["economy"]
     
-    # ツールチップテキスト
+    # ツールチップ内は見やすさを重視してHTMLタグで装飾
     title = f"""
-    <div style="color: black; font-size: 12px;">
-        <b>{node_id}</b><br>
-        所有: {owner}<br>
-        兵力: {troops}<br>
-        経済力: {economy}
+    <div style="font-family: sans-serif; padding: 5px;">
+        <b style="font-size: 14px; color: #111111;">【{node_id}】</b><br>
+        <hr style="margin: 3px 0; border: 0; border-top: 1px solid #ccc;">
+        <span style="color: #333;">支配国家:</span> <b>{owner}</b><br>
+        <span style="color: #333;">現在兵力:</span> <b>⚔️ {troops}</b><br>
+        <span style="color: #333;">領地経済:</span> <b>💰 {economy} G</b>
     </div>
     """
     return title
 
 # 改善された描画関数
 def draw_map_improved():
-    net = Network(height="450px", width="100%", bgcolor="#222222", font_color="white", heading="戦況マップ")
+    net = Network(height="450px", width="100%", bgcolor="#222222", font_color="white")
     
     for node_id, info in st.session_state.nodes.items():
         color = COLORS[info["owner"]]
         label = generate_improved_node_label(node_id, info)
         
         # 兵力に応じてノードのサイズを動的に変更
-        base_size = 20
-        troops_bonus = min(20, info["troops"] // 5) # 最大+20まで
+        base_size = 25
+        troops_bonus = min(20, info["troops"] // 3)  # 兵力が多いほど大きく
         size = base_size + troops_bonus
-        
-        # ホバー時の情報を設定
+
+        # マウスを乗せたときに出るポップアップ（※ここはHTMLタグが使えます！）
         title = generate_hover_title(node_id, info)
-        
+
         # 前線ノードの判定（隣接に他国あり）
         is_frontline = any(st.session_state.nodes[adj]["owner"] != info["owner"] for adj in info["adjacent"])
-        border_width = 3 if is_frontline else 1
-        border_color = "red" if is_frontline and info["owner"] == "プレイヤー(赤)" else color
         
-        net.add_node(node_id, 
-                     label=label, 
-                     size=size, 
-                     title=title, 
-                     shape="circle", # ⭕️ 形状を円形に固定
-                     borderWidth=border_width, 
-                     color=dict(border=border_color, background=color))
+        # 前線かつプレイヤーの領地なら枠線を太く・黄色（または目立つ色）に
+        if is_frontline and info["owner"] == "プレイヤー(赤)":
+            border_width = 5
+            border_color = "#ffff00"  # 黄色の極太枠で警告
+        else:
+            border_width = 1
+            border_color = color
+        
+        # 💡 font 引数を使って、ノード内の文字サイズや配置を調整します
+        net.add_node(
+            node_id, 
+            label=label, 
+            size=size, 
+            title=title, 
+            shape="circle", 
+            borderWidth=border_width, 
+            color=dict(border=border_color, background=color),
+            font=dict(size=14, color="white", face="Courier New", strokeWidth=2, strokeColor="#000000")
+        )
         
     for node_id, info in st.session_state.nodes.items():
         for adj in info["adjacent"]:
             if node_id < adj:
-                net.add_edge(node_id, adj, color="#555555")
+                net.add_edge(node_id, adj, color="#555555", width=2)
                 
     net.toggle_physics(False) 
     
