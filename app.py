@@ -179,7 +179,7 @@ def draw_map_improved():
         # 領地内の総兵力に応じてノードサイズを可変に
         staying_units = [u for u in st.session_state.units.values() if u["location"] == node_id]
         total_troops = sum(u["count"] for u in staying_units)
-        size = 25 + min(20, total_troops // 2)
+        size = 25 + min(20, total_troops * 2) # 兵数に応じてノードが大きくなるよう調整
         
         is_frontline = any(st.session_state.nodes[adj]["owner"] != info["owner"] for adj in info["adjacent"])
         if is_frontline and info["owner"] == "プレイヤー(赤)":
