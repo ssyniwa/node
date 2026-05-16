@@ -353,6 +353,7 @@ elif st.session_state.phase == "侵攻":
     if not player_units:
         st.warning("現在、動かせる部隊がありません。部隊配置フェーズで部隊を結成してください。")
         if st.button("🏁 行動せずにターン終了（次ターンへ）"):
+            run_ai_turn()
             st.session_state.phase = "資金確保"
             st.session_state.turn += 1
             st.rerun()
