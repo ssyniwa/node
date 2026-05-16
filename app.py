@@ -397,7 +397,7 @@ elif st.session_state.phase == "侵攻":
             st.write("攻め込める隣接領地がありません。")
             
     
-        if st.button("🏁 侵攻せずにターン終了（AIのみ行動）"):
+        if st.button("🏁 この部隊は動かさずにターン終了"):
             run_ai_turn()
             st.session_state.phase = "資金確保"
             st.session_state.turn += 1
