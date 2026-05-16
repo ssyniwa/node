@@ -131,7 +131,7 @@ if st.session_state.phase == "資金確保":
             if country == "プレイヤー(赤)":
                 add_log(f"領地から {earned} G の資金を確保しました。")
         st.session_state.phase = "内政"
-        st.rarun() if hasattr(st, "rerun") else st.experimental_rerun()
+        st.rerun()
 
 elif st.session_state.phase == "内政":
     st.info("【内政フェーズ】資金を50G消費して、プレイヤー領地1つの経済力を+20できます。")
