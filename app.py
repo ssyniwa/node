@@ -2,7 +2,8 @@ import streamlit as st
 import random
 from pyvis.network import Network
 import streamlit.components.v1 as components
-
+import tempfile
+import os
 # 画面全体のレイアウトを広く使う
 st.set_page_config(layout="wide")
 
@@ -87,12 +88,16 @@ def draw_map():
             if node_id < adj:
                 net.add_edge(node_id, adj, color="#555555")
                 
-    net.toggle_physics(False) # 毎回揺れるのを防ぐため物理シミュレーションはオフ
-    net.save_graph("map.html")
-    with open("map.html", 'r', encoding='utf-8') as f:
-        html_data = f.read()
+    net.toggle_physics(False)
+    
+    # 💡 修正ポイント: 一時フォルダ内にHTMLを出力する
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = os.path.join(tmpdir, "map.html")
+        net.save_graph(path)
+        with open(path, 'r', encoding='utf-8') as f:
+            html_data = f.read()
+            
     components.html(html_data, height=460)
-
 # --- AIの侵攻処理関数 ---
 def run_ai_turn():
     """青国と緑国がそれぞれ隣接する他国・中立の領地にランダムに攻め込む"""
