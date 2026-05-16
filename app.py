@@ -389,8 +389,7 @@ elif st.session_state.phase == "侵攻":
                 st.session_state.phase = "資金確保"
                 st.session_state.turn += 1
                 st.rerun()
-        else:
-            st.write("攻め込める隣接領地がありません。")
+        
             
     
         if st.button("🏁 この部隊は動かさずにターン終了"):
