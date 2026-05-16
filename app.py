@@ -4,12 +4,21 @@ from pyvis.network import Network
 import streamlit.components.v1 as components
 import tempfile
 import os
-# 画面全体のレイアウトを広く使う
+
 st.set_page_config(layout="wide")
 
 # --- 1. 定数と初期データ定義 ---
 COUNTRIES = ["プレイヤー(赤)", "AI(青)", "AI(緑)", "中立"]
 COLORS = {"プレイヤー(赤)": "#ff4b4b", "AI(青)": "#1c83e1", "AI(緑)": "#00f060", "中立": "#aaaaaa"}
+
+# 【新仕様】5大兵種のマスターデータ
+SOLDIER_TYPES = {
+    "銃撃部隊": {"cost": 10, "atk": 5, "range": 150},
+    "砲撃部隊": {"cost": 25, "atk": 12, "range": 300},
+    "戦車部隊": {"cost": 50, "atk": 25, "range": 450},
+    "戦闘機部隊": {"cost": 90, "atk": 50, "range": 600},
+    "ミサイル部隊": {"cost": 150, "atk": 90, "range": 800},
+}
 
 CAPTAIN_POOL = [
     {"name": "レオニダス", "atk": 15, "dfn": 10, "mot": 5},
@@ -19,23 +28,34 @@ CAPTAIN_POOL = [
     {"name": "アレクサンダー", "atk": 14, "dfn": 11, "mot": 7},
 ]
 
-# --- 2. セッション状態の初期化（初回のみ実行） ---
-# キー `map_generated` を使って、2回目以降の再実行でマップが再生成されるのを完全に防ぎます
+# --- 2. セッション状態の初期化 ---
 if "map_generated" not in st.session_state:
     st.session_state.map_generated = True
     st.session_state.phase = "資金確保"
     st.session_state.turn = 1
     
     st.session_state.country_data = {
-        "プレイヤー(赤)": {"gold": 100, "captains": []},
-        "AI(青)": {"gold": 100, "captains": [{"name": "AI将軍A", "atk": 10, "dfn": 10, "mot": 5}]},
-        "AI(緑)": {"gold": 100, "captains": [{"name": "AI将軍B", "atk": 10, "dfn": 10, "mot": 5}]},
+        "プレイヤー(赤)": {"gold": 400, "captains": []}, # 兵を雇うために初期資金を多めに設定
+        "AI(青)": {"gold": 300, "captains": []},
+        "AI(緑)": {"gold": 300, "captains": []},
     }
     
+    # 【新仕様】全部隊の集中管理辞書
+    # 構造: "部隊名": {"owner": 国家, "captain": 隊長データ, "soldier_type": 兵種, "count": 兵数, "location": 領地ID}
+    st.session_state.units = {}
+    
+    # 初期AI部隊を1つずつ配備
+    st.session_state.units["AI青軍第1部隊"] = {
+        "owner": "AI(青)", "captain": {"name": "AI将軍A", "atk": 10, "dfn": 10, "mot": 5},
+        "soldier_type": "砲撃部隊", "count": 4, "location": "領地_2"
+    }
+    st.session_state.units["AI緑軍第1部隊"] = {
+        "owner": "AI(緑)", "captain": {"name": "AI将軍B", "atk": 10, "dfn": 10, "mot": 5},
+        "soldier_type": "銃撃部隊", "count": 10, "location": "領地_3"
+    }
+
     num_nodes = 40
     nodes = {}
-    
-    # 初期領地配置
     for i in range(num_nodes):
         node_id = f"領地_{i+1}"
         if i == 0: owner = "プレイヤー(赤)"
@@ -45,19 +65,16 @@ if "map_generated" not in st.session_state:
         
         nodes[node_id] = {
             "owner": owner,
-            "economy": random.randint(10, 50),
-            "troops": random.randint(10, 20) if owner != "中立" else random.randint(2, 6),
+            "economy": random.randint(15, 40),
             "adjacent": set()
         }
     
-    # 固定のネットワーク構造を生成
     node_keys = list(nodes.keys())
     for i in range(num_nodes - 1):
         nodes[node_keys[i]]["adjacent"].add(node_keys[i+1])
         nodes[node_keys[i+1]]["adjacent"].add(node_keys[i])
     
-    # 複雑化のためのランダムエッジ（初回のみ固定で生成される）
-    random.seed(42) # 形状を完全に固定したい場合はシード値を設定
+    random.seed(42)
     for _ in range(50):
         n1 = random.choice(node_keys)
         n2 = random.choice(node_keys)
@@ -69,96 +86,8 @@ if "map_generated" not in st.session_state:
         nodes[n]["adjacent"] = list(nodes[n]["adjacent"])
         
     st.session_state.nodes = nodes
-    st.session_state.log = ["世界が生成されました。天下統一を目指しましょう！"]
+    st.session_state.log = ["新世界が定義されました。隊長を率いて出撃せよ！"]
     st.session_state.current_candidate = random.choice(CAPTAIN_POOL)
-
-# --- 3. 共通関数 ---
-def add_log(text):
-    st.session_state.log.insert(0, f"【T{st.session_state.turn}】{text}")
-
-# 改善されたノードラベルの生成関数
-# --- 修正版：ノードのラベル生成関数（HTMLタグを使わず \n で改行） ---
-def generate_improved_node_label(node_id, info):
-    owner = info["owner"]
-    troops = info["troops"]
-    economy = info["economy"]
-    
-    # 国家ごとのアイコンをシンプルに付与
-    owner_icon = "👤" if owner == "プレイヤー(赤)" else "🤖" if owner.startswith("AI") else "🏳️"
-    
-    # \n を使って改行。Pyvisはこれなら正しく解釈します
-    label = f"{node_id}\n{owner_icon}{owner}"
-    return label
-# 改善されたホバー情報の生成関数
-def generate_hover_title(node_id, info):
-    """マウスホバー時に表示される詳細情報を生成（HTMLタグ不使用版）"""
-    owner = info["owner"]
-    troops = info["troops"]
-    economy = info["economy"]
-    
-    # 💡 \n を使ってシンプルに改行テキストを作る
-    title = (
-        f"【{node_id}】\n"
-        f"----------------------\n"
-        f"支配国家: {owner}\n"
-        f"現在兵力: ⚔️ {troops}\n"
-        f"領地経済: 💰 {economy} G"
-    )
-    return title
-
-# 改善された描画関数
-def draw_map_improved():
-    net = Network(height="450px", width="100%", bgcolor="#222222", font_color="white")
-    
-    for node_id, info in st.session_state.nodes.items():
-        color = COLORS[info["owner"]]
-        label = generate_improved_node_label(node_id, info)
-        
-        # 兵力に応じてノードのサイズを動的に変更
-        base_size = 25
-        troops_bonus = min(20, info["troops"] // 3)  # 兵力が多いほど大きく
-        size = base_size + troops_bonus
-
-        # マウスを乗せたときに出るポップアップ（※ここはHTMLタグが使えます！）
-        title = generate_hover_title(node_id, info)
-
-        # 前線ノードの判定（隣接に他国あり）
-        is_frontline = any(st.session_state.nodes[adj]["owner"] != info["owner"] for adj in info["adjacent"])
-        
-        # 前線かつプレイヤーの領地なら枠線を太く・黄色（または目立つ色）に
-        if is_frontline and info["owner"] == "プレイヤー(赤)":
-            border_width = 5
-            border_color = "#ffff00"  # 黄色の極太枠で警告
-        else:
-            border_width = 1
-            border_color = color
-        
-        # 💡 font 引数を使って、ノード内の文字サイズや配置を調整します
-        net.add_node(
-            node_id, 
-            label=label, 
-            size=size, 
-            title=title, 
-            shape="circle", 
-            borderWidth=border_width, 
-            color=dict(border=border_color, background=color),
-            font=dict(size=14, color="white", face="Courier New", strokeWidth=2, strokeColor="#000000")
-        )
-        
-    for node_id, info in st.session_state.nodes.items():
-        for adj in info["adjacent"]:
-            if node_id < adj:
-                net.add_edge(node_id, adj, color="#555555", width=2)
-                
-    net.toggle_physics(False) 
-    net.set_options('{"interaction": {"hover": true}, "nodes": {"font": {"face": "monospace"}}}')
-    with tempfile.TemporaryDirectory() as tmpdir:
-        path = os.path.join(tmpdir, "map.html")
-        net.save_graph(path)
-        with open(path, 'r', encoding='utf-8') as f:
-            html_data = f.read()
-            
-    components.html(html_data, height=460)
 # --- AIの侵攻処理関数 ---
 def run_ai_turn():
     """青国と緑国がそれぞれ隣接する他国・中立の領地にランダムに攻め込む"""
@@ -202,12 +131,88 @@ def run_ai_turn():
             # AIの敗北
             st.session_state.nodes[src_node]["troops"] -= atk_troops
             st.session_state.nodes[tgt_node]["troops"] = max(1, def_info["troops"] - (atk_troops // 2))
+# --- 3. 共通関数 ---
+def add_log(text):
+    st.session_state.log.insert(0, f"【T{st.session_state.turn}】{text}")
 
+def generate_improved_node_label(node_id, info):
+    owner = info["owner"]
+    owner_icon = "👤" if owner == "プレイヤー(赤)" else "🤖" if owner.startswith("AI") else "🏳️"
+    
+    # 【新仕様】その領地にいる部隊を検索してラベルに表示
+    staying_units = [u_name for u_name, u_info in st.session_state.units.items() if u_info["location"] == node_id]
+    
+    unit_text = ""
+    if staying_units:
+        unit_details = []
+        for uname in staying_units:
+            u = st.session_state.units[uname]
+            unit_details.append(f"[{u['captain']['name']}:{u['soldier_type']}x{u['count']}]")
+        unit_text = "\n" + "\n".join(unit_details)
+    else:
+        unit_text = "\n(部隊なし)"
+        
+    return f"{node_id}\n{owner_icon}{owner}\n💰経済: {info['economy']}G{unit_text}"
+
+def generate_hover_title(node_id, info):
+    staying_units = [u_name for u_name, u_info in st.session_state.units.items() if u_info["location"] == node_id]
+    unit_logs = ""
+    for uname in staying_units:
+        u = st.session_state.units[uname]
+        unit_logs += f"・{uname} ({u['soldier_type']} × {u['count']})\n"
+        
+    return (
+        f"【{node_id}】\n"
+        f"支配国家: {info['owner']}\n"
+        f"経済力: {info['economy']} G\n"
+        f"--- 駐留部隊 ---\n{unit_logs if unit_logs else 'なし'}"
+    )
+
+def draw_map_improved():
+    net = Network(height="480px", width="100%", bgcolor="#222222", font_color="white")
+    
+    for node_id, info in st.session_state.nodes.items():
+        color = COLORS[info["owner"]]
+        label = generate_improved_node_label(node_id, info)
+        title = generate_hover_title(node_id, info)
+        
+        # 領地内の総兵力に応じてノードサイズを可変に
+        staying_units = [u for u in st.session_state.units.values() if u["location"] == node_id]
+        total_troops = sum(u["count"] for u in staying_units)
+        size = 25 + min(20, total_troops // 2)
+        
+        is_frontline = any(st.session_state.nodes[adj]["owner"] != info["owner"] for adj in info["adjacent"])
+        if is_frontline and info["owner"] == "プレイヤー(赤)":
+            border_width = 5
+            border_color = "#ffff00"
+        else:
+            border_width = 1
+            border_color = color
+        
+        net.add_node(
+            node_id, label=label, size=size, title=title, shape="circle", 
+            borderWidth=border_width, color=dict(border=border_color, background=color),
+            font=dict(size=13, color="white", strokeWidth=2, strokeColor="#000000")
+        )
+        
+    for node_id, info in st.session_state.nodes.items():
+        for adj in info["adjacent"]:
+            if node_id < adj:
+                net.add_edge(node_id, adj, color="#555555", width=2)
+                
+    net.toggle_physics(False) 
+    net.set_options('{"interaction": {"hover": true}, "nodes": {"font": {"face": "monospace"}}}')
+    
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = os.path.join(tmpdir, "map.html")
+        net.save_graph(path)
+        with open(path, 'r', encoding='utf-8') as f:
+            html_data = f.read()
+    components.html(html_data, height=490)
 # --- 4. 画面表示レイアウト ---
-st.title("🌐 ノード奪還戦：🗺️ 40ノード大戦国")
+st.title("🌐 ノード奪還戦：🗺️ 40ノード大戦国 (兵種・部隊改造版)")
 
 col1, col2 = st.columns([2, 1])
-
 with col1:
     st.subheader(f"ターン: {st.session_state.turn} | 現在のフェーズ: 【{st.session_state.phase}】")
     draw_map_improved()
@@ -216,11 +221,17 @@ with col2:
     st.subheader("📊 プレイヤー情報")
     p_gold = st.session_state.country_data["プレイヤー(赤)"]["gold"]
     p_caps = [c["name"] for c in st.session_state.country_data["プレイヤー(赤)"]["captains"]]
+    
+    # 待機中（部隊を持っていない）の隊長リスト
+    busy_caps = [u["captain"]["name"] for u in st.session_state.units.values() if u["owner"] == "プレイヤー(赤)"]
+    free_caps = [c for c in p_caps if c not in busy_caps]
+    
     st.metric("所持金 (G)", f"{p_gold} G")
-    st.write(f"**配下の隊長:** {', '.join(p_caps) if p_caps else 'なし'}")
+    st.write(f"**全配下の隊長:** {', '.join(p_caps) if p_caps else 'なし'}")
+    st.write(f"**未配属の隊長:** {', '.join(free_caps) if free_caps else 'なし（部隊配置で兵を配属してください）'}")
     
     st.subheader("📜 戦況履歴")
-    st.caption("\n".join(st.session_state.log[:10]))
+    st.caption("\n".join(st.session_state.log[:8]))
 
 st.divider()
 
@@ -243,7 +254,7 @@ elif st.session_state.phase == "内政":
     if player_nodes:
         selected_node = st.selectbox("投資する領地:", player_nodes)
         col_inv, col_skip = st.columns(2)
-        if col_inv.button("💸 50G投資する (経済力+20)"):
+        if col_inv.button("💸 50G投資する"):
             if st.session_state.country_data["プレイヤー(赤)"]["gold"] >= 50:
                 st.session_state.country_data["プレイヤー(赤)"]["gold"] -= 50
                 st.session_state.nodes[selected_node]["economy"] += 20
@@ -268,11 +279,14 @@ elif st.session_state.phase == "部隊確保":
     col_hire, col_pass = st.columns(2)
     if col_hire.button(f"🤝 雇用する (60G)"):
         if st.session_state.country_data["プレイヤー(赤)"]["gold"] >= 60:
-            st.session_state.country_data["プレイヤー(赤)"]["gold"] -= 60
-            st.session_state.country_data["プレイヤー(赤)"]["captains"].append(cand)
-            add_log(f"隊長「{cand['name']}」が配下に加わりました。")
-            st.session_state.phase = "部隊配置"
-            st.rerun()
+            if cand in st.session_state.country_data["プレイヤー(赤)"]["captains"]:
+                st.warning("この隊長は既に雇用しています。")
+            else:
+                st.session_state.country_data["プレイヤー(赤)"]["gold"] -= 60
+                st.session_state.country_data["プレイヤー(赤)"]["captains"].append(cand)
+                add_log(f"隊長「{cand['name']}」が配下に加わりました。")
+                st.session_state.phase = "部隊配置"
+                st.rerun()
         else:
             st.error("資金が足りません！")
     if col_pass.button("見送る"):
@@ -280,24 +294,57 @@ elif st.session_state.phase == "部隊確保":
         st.rerun()
 
 elif st.session_state.phase == "部隊配置":
-    st.info("【部隊配置フェーズ】所持金を使って兵力を購入・配備します（1兵力 = 2G）。")
-    player_nodes = [k for k, v in st.session_state.nodes.items() if v["owner"] == "プレイヤー(赤)"]
+    st.info("【部隊配置フェーズ】未配属の隊長に兵種と兵力を与え、「部隊」を結成します。")
     
-    if player_nodes:
-        target_node = st.selectbox("配備先の領地:", player_nodes)
-        max_affordable = st.session_state.country_data["プレイヤー(赤)"]["gold"] // 2
-        amount = st.number_input("配備する兵力数:", min_value=0, max_value=max_affordable, value=0)
-        
-        if st.button("🪖 兵力を確定して侵攻フェーズへ"):
-            if amount > 0:
-                st.session_state.country_data["プレイヤー(赤)"]["gold"] -= (amount * 2)
-                st.session_state.nodes[target_node]["troops"] += amount
-                add_log(f"{target_node} に兵力を {amount} 補充しました。")
+    if not free_caps:
+        st.warning("現在、新しく結成できる未配属の隊長がいません。部隊配置を終了します。")
+        if st.button("侵攻フェーズへ進む"):
             st.session_state.phase = "侵攻"
             st.rerun()
     else:
-        st.session_state.phase = "侵攻"
-        st.rerun()
+        # 1. 隊長の選択
+        selected_cap_name = st.selectbox("兵を配属する隊長を選択:", free_caps)
+        selected_cap_data = next(c for c in st.session_state.country_data["プレイヤー(赤)"]["captains"] if c["name"] == selected_cap_name)
+        
+        # 2. 兵種の選択
+        st.write("--- 兵種カタログ ---")
+        st.table([{"兵種": k, "コスト(1機辺り)": f"{v['cost']}G", "攻撃力": v["atk"], "射程": v["range"]} for k, v in SOLDIER_TYPES.items()])
+        selected_soldier = st.selectbox("編成する兵種を選択:", list(SOLDIER_TYPES.keys()))
+        
+        # 3. 兵数の決定（買える上限を計算）
+        unit_cost = SOLDIER_TYPES[selected_soldier]["cost"]
+        max_buy = st.session_state.country_data["プレイヤー(赤)"]["gold"] // unit_cost
+        
+        if max_buy == 0:
+            st.error(f"資金が足りないため、{selected_soldier} を雇うことができません！")
+        else:
+            troop_count = st.slider(f"編成する兵数 (1機 {unit_cost}G):", min_value=1, max_value=max_buy, value=1)
+            total_spend = troop_count * unit_cost
+            
+            # 4. 配置する初期領地の選択（プレイヤー領地のみ）
+            player_nodes = [k for k, v in st.session_state.nodes.items() if v["owner"] == "プレイヤー(赤)"]
+            deploy_node = st.selectbox("初期配置する領地:", player_nodes)
+            
+            if st.button(f"🪖 {selected_cap_name}部隊を結成 (総額: {total_spend}G)"):
+                # 資金消費
+                st.session_state.country_data["プレイヤー(赤)"]["gold"] -= total_spend
+                
+                # 新しい部隊をグローバルな部隊データに追加
+                unit_id = f"{selected_cap_name}部隊"
+                st.session_state.units[unit_id] = {
+                    "owner": "プレイヤー(赤)",
+                    "captain": selected_cap_data,
+                    "soldier_type": selected_soldier,
+                    "count": troop_count,
+                    "location": deploy_node
+                }
+                
+                add_log(f"【部隊結成】{selected_cap_name}が{selected_soldier}×{troop_count}を率いて{deploy_node}に配備されました。")
+                st.rerun()
+                
+        if st.button("配置を終了して侵攻フェーズへ"):
+            st.session_state.phase = "侵攻"
+            st.rerun()
 
 elif st.session_state.phase == "侵攻":
     st.info("【侵攻フェーズ】自分のターンを終了すると、同時にAI国家（青・緑）も行動を開始します。")
