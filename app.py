@@ -134,8 +134,13 @@ def draw_map_improved():
         border_width = 3 if is_frontline else 1
         border_color = "red" if is_frontline and info["owner"] == "プレイヤー(赤)" else color
         
-        net.add_node(node_id, label=label, size=size, title=title, 
-                     borderWidth=border_width, color=dict(border=border_color, background=color))
+        net.add_node(node_id, 
+                     label=label, 
+                     size=size, 
+                     title=title, 
+                     shape="circle", # ⭕️ 形状を円形に固定
+                     borderWidth=border_width, 
+                     color=dict(border=border_color, background=color))
         
     for node_id, info in st.session_state.nodes.items():
         for adj in info["adjacent"]:
