@@ -76,21 +76,74 @@ if "map_generated" not in st.session_state:
 def add_log(text):
     st.session_state.log.insert(0, f"【T{st.session_state.turn}】{text}")
 
-def draw_map():
-    net = Network(height="450px", width="100%", bgcolor="#222222", font_color="white")
+# 改善されたノードラベルの生成関数
+def generate_improved_node_label(node_id, info):
+    owner = info["owner"]
+    troops = info["troops"]
+    economy = info["economy"]
+    
+    # 国家ごとのアイコン
+    owner_icon = "👤" if owner == "プレイヤー(赤)" else "🤖" if owner.startswith("AI") else "🏳️"
+    
+    # 改良されたラベルテキスト (HTMLを活用)
+    label = f"""
+    <div style="text-align: center; color: white;">
+        <span style="font-size: 16px; font-weight: bold;">{node_id}</span><br>
+        <span style="font-size: 12px; color: {COLORS[owner]};">{owner_icon} {owner}</span><br>
+        <span style="font-size: 14px;">⚔️ 兵: <span style="font-weight: bold;">{troops}</span></span> | 
+        <span style="font-size: 14px;">💰 経: <span style="font-weight: bold;">{economy}</span></span>
+    </div>
+    """
+    return label
+
+# 改善されたホバー情報の生成関数
+def generate_hover_title(node_id, info):
+    owner = info["owner"]
+    troops = info["troops"]
+    economy = info["economy"]
+    
+    # ツールチップテキスト
+    title = f"""
+    <div style="color: black; font-size: 12px;">
+        <b>{node_id}</b><br>
+        所有: {owner}<br>
+        兵力: {troops}<br>
+        経済力: {economy}
+    </div>
+    """
+    return title
+
+# 改善された描画関数
+def draw_map_improved():
+    net = Network(height="450px", width="100%", bgcolor="#222222", font_color="white", heading="戦況マップ")
+    
     for node_id, info in st.session_state.nodes.items():
         color = COLORS[info["owner"]]
-        label = f"{node_id}\n(兵:{info['troops']}/経:{info['economy']})"
-        net.add_node(node_id, label=label, color=color, size=22)
+        label = generate_improved_node_label(node_id, info)
+        
+        # 兵力に応じてノードのサイズを動的に変更
+        base_size = 20
+        troops_bonus = min(20, info["troops"] // 5) # 最大+20まで
+        size = base_size + troops_bonus
+        
+        # ホバー時の情報を設定
+        title = generate_hover_title(node_id, info)
+        
+        # 前線ノードの判定（隣接に他国あり）
+        is_frontline = any(st.session_state.nodes[adj]["owner"] != info["owner"] for adj in info["adjacent"])
+        border_width = 3 if is_frontline else 1
+        border_color = "red" if is_frontline and info["owner"] == "プレイヤー(赤)" else color
+        
+        net.add_node(node_id, label=label, color=color, size=size, title=title, 
+                     borderWidth=border_width, color=dict(border=border_color, background=color))
         
     for node_id, info in st.session_state.nodes.items():
         for adj in info["adjacent"]:
             if node_id < adj:
                 net.add_edge(node_id, adj, color="#555555")
                 
-    net.toggle_physics(False)
+    net.toggle_physics(False) 
     
-    # 💡 修正ポイント: 一時フォルダ内にHTMLを出力する
     with tempfile.TemporaryDirectory() as tmpdir:
         path = os.path.join(tmpdir, "map.html")
         net.save_graph(path)
@@ -149,7 +202,7 @@ col1, col2 = st.columns([2, 1])
 
 with col1:
     st.subheader(f"ターン: {st.session_state.turn} | 現在のフェーズ: 【{st.session_state.phase}】")
-    draw_map()
+    draw_map_improved()
 
 with col2:
     st.subheader("📊 プレイヤー情報")
