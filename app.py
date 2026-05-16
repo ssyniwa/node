@@ -87,7 +87,7 @@ def generate_improved_node_label(node_id, info):
     owner_icon = "👤" if owner == "プレイヤー(赤)" else "🤖" if owner.startswith("AI") else "🏳️"
     
     # \n を使って改行。Pyvisはこれなら正しく解釈します
-    label = f"{node_id}\n{owner_icon}{owner}\n⚔️兵: {troops} | 💰経: {economy}"
+    label = f"{node_id}\n{owner_icon}{owner}"
     return label
 # 改善されたホバー情報の生成関数
 def generate_hover_title(node_id, info):
