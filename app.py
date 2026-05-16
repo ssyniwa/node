@@ -253,7 +253,13 @@ elif st.session_state.phase == "侵攻":
             tgt_node = st.selectbox("攻撃先:", possible_targets)
             
             max_atk_troops = st.session_state.nodes[src_node]["troops"] - 1
-            atk_troops = st.slider("出撃兵力", min_value=1, max_value=max_atk_troops, value=max_atk_troops)
+            
+            # 💡 修正ポイント: 出撃可能最大数が1の場合はスライダーを出さずに1に固定
+            if max_atk_troops == 1:
+                st.write("⚔️ 出撃兵力: **1** (領地に1名残すため選択の余地がありません)")
+                atk_troops = 1
+            else:
+                atk_troops = st.slider("出撃兵力", min_value=1, max_value=max_atk_troops, value=max_atk_troops)
             
             if st.button("⚔️ 侵攻開始！"):
                 # プレイヤー戦闘
