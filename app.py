@@ -91,21 +91,19 @@ def generate_improved_node_label(node_id, info):
     return label
 # 改善されたホバー情報の生成関数
 def generate_hover_title(node_id, info):
-    """マウスホバー時に表示される詳細情報のHTMLを生成（Pyvisのtitle属性用）"""
+    """マウスホバー時に表示される詳細情報を生成（HTMLタグ不使用版）"""
     owner = info["owner"]
     troops = info["troops"]
     economy = info["economy"]
     
-    # ツールチップ内は見やすさを重視してHTMLタグで装飾
-    title = f"""
-    <div style="font-family: sans-serif; padding: 5px;">
-        <b style="font-size: 14px; color: #111111;">【{node_id}】</b><br>
-        <hr style="margin: 3px 0; border: 0; border-top: 1px solid #ccc;">
-        <span style="color: #333;">支配国家:</span> <b>{owner}</b><br>
-        <span style="color: #333;">現在兵力:</span> <b>⚔️ {troops}</b><br>
-        <span style="color: #333;">領地経済:</span> <b>💰 {economy} G</b>
-    </div>
-    """
+    # 💡 \n を使ってシンプルに改行テキストを作る
+    title = (
+        f"【{node_id}】\n"
+        f"----------------------\n"
+        f"支配国家: {owner}\n"
+        f"現在兵力: ⚔️ {troops}\n"
+        f"領地経済: 💰 {economy} G"
+    )
     return title
 
 # 改善された描画関数
@@ -153,7 +151,7 @@ def draw_map_improved():
                 net.add_edge(node_id, adj, color="#555555", width=2)
                 
     net.toggle_physics(False) 
-    
+    net.set_options('{"interaction": {"hover": true}, "nodes": {"font": {"face": "monospace"}}}')
     with tempfile.TemporaryDirectory() as tmpdir:
         path = os.path.join(tmpdir, "map.html")
         net.save_graph(path)
