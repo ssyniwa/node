@@ -346,48 +346,47 @@ elif st.session_state.phase == "部隊配置":
             st.session_state.phase = "侵攻"
             st.rerun()
 
+
+
+
 elif st.session_state.phase == "侵攻":
-    st.info("【侵攻フェーズ】自分のターンを終了すると、同時にAI国家（青・緑）も行動を開始します。")
+    st.info("【侵攻フェーズ】自分の部隊を選択し、隣接する領地へ移動・侵攻させます。")
     
-    atk_sources = [k for k, v in st.session_state.nodes.items() if v["owner"] == "プレイヤー(赤)" and v["troops"] > 1]
-    valid_sources = [src for src in atk_sources if any(st.session_state.nodes[adj]["owner"] != "プレイヤー(赤)" for adj in st.session_state.nodes[src]["adjacent"])]
+    # 1. プレイヤーが動かせる「自分の部隊」をリストアップ
+    player_units = {u_name: u_info for u_name, u_info in st.session_state.units.items() if u_info["owner"] == "プレイヤー(赤)"}
     
-    col_atk, col_end = st.columns(2)
-    
-    with col_atk:
-        if valid_sources:
-            src_node = st.selectbox("出撃元:", valid_sources)
-            possible_targets = [adj for adj in st.session_state.nodes[src_node]["adjacent"] if st.session_state.nodes[adj]["owner"] != "プレイヤー(赤)"]
-            tgt_node = st.selectbox("攻撃先:", possible_targets)
+    if not player_units:
+        st.warning("現在、動かせる部隊がありません。部隊配置フェーズで部隊を結成してください。")
+        if st.button("🏁 行動せずにターン終了（次ターンへ）"):
+            st.session_state.phase = "資金確保"
+            st.session_state.turn += 1
+            st.rerun()
+    else:
+        # 部隊の選択
+        selected_unit_name = st.selectbox("動かす部隊を選択してください:", list(player_units.keys()))
+        unit_info = player_units[selected_unit_name]
+        current_loc = unit_info["location"]
+        
+        st.write(f"現在の位置: **{current_loc}** ({unit_info['soldier_type']} × {unit_info['count']})")
+        
+        # 2. その部隊がいる領地から「移動可能な隣接領地」を取得
+        possible_destinations = st.session_state.nodes[current_loc]["adjacent"]
+        target_loc = st.selectbox("移動・侵攻先の領地を選択してください:", possible_destinations)
+        
+        dest_owner = st.session_state.nodes[target_loc]["owner"]
+        st.write(f"目的地の所有者: **{dest_owner}**")
+        
+        if st.button("🚀 部隊を移動 / 侵攻開始"):
+            # 部隊の位置を書き換える（これが移動の実装になります！）
+            st.session_state.units[selected_unit_name]["location"] = target_loc
             
-            max_atk_troops = st.session_state.nodes[src_node]["troops"] - 1
-            
-            # 💡 修正ポイント: 出撃可能最大数が1の場合はスライダーを出さずに1に固定
-            if max_atk_troops == 1:
-                st.write("⚔️ 出撃兵力: **1** (領地に1名残すため選択の余地がありません)")
-                atk_troops = 1
+            # 移動先が中立または無人の場合（ステップ1の暫定処理）
+            if dest_owner != "プレイヤー(赤)":
+                # 領地の支配権をプレイヤーに変更
+                st.session_state.nodes[target_loc]["owner"] = "プレイヤー(赤)"
+                add_log(f"【進軍】{selected_unit_name}が{current_loc}から{target_loc}へ移動し、領地を確保しました！")
             else:
-                atk_troops = st.slider("出撃兵力", min_value=1, max_value=max_atk_troops, value=max_atk_troops)
-            
-            if st.button("⚔️ 侵攻開始！"):
-                # プレイヤー戦闘
-                p_caps = st.session_state.country_data["プレイヤー(赤)"]["captains"]
-                cap_atk_bonus = sum(c["atk"] + c["mot"] for c in p_caps) // len(p_caps) if p_caps else 0
-                total_atk = atk_troops + cap_atk_bonus + random.randint(1, 10)
-                
-                def_info = st.session_state.nodes[tgt_node]
-                total_dfn = def_info["troops"] + random.randint(1, 10)
-                
-                if total_atk > total_dfn:
-                    survivors = max(1, atk_troops - (total_dfn // 2))
-                    st.session_state.nodes[src_node]["troops"] -= atk_troops
-                    st.session_state.nodes[tgt_node]["owner"] = "プレイヤー(赤)"
-                    st.session_state.nodes[tgt_node]["troops"] = survivors
-                    add_log(f"🎉 勝利！ {tgt_node}を占領しました。")
-                else:
-                    st.session_state.nodes[src_node]["troops"] -= atk_troops
-                    st.session_state.nodes[tgt_node]["troops"] = max(1, def_info["troops"] - (atk_troops // 2))
-                    add_log(f"😢 敗北... {tgt_node} の攻略に失敗しました。")
+                add_log(f"【移動】{selected_unit_name}が{current_loc}から同盟領地の{target_loc}へ移動しました。")
                 
                 # プレイヤー行動後にAIが行動
                 run_ai_turn()
@@ -397,7 +396,7 @@ elif st.session_state.phase == "侵攻":
         else:
             st.write("攻め込める隣接領地がありません。")
             
-    with col_end:
+    
         if st.button("🏁 侵攻せずにターン終了（AIのみ行動）"):
             run_ai_turn()
             st.session_state.phase = "資金確保"
