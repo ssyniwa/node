@@ -90,47 +90,42 @@ if "map_generated" not in st.session_state:
     st.session_state.current_candidate = random.choice(CAPTAIN_POOL)
 # --- AIの侵攻処理関数 ---
 def run_ai_turn():
-    """青国と緑国がそれぞれ隣接する他国・中立の領地にランダムに攻め込む"""
-    for ai_country in ["AI(青)", "AI(緑)"]:
-        # AIが持っていて、かつ兵力が2以上の領地（出撃元候補）
-        ai_nodes = [k for k, v in st.session_state.nodes.items() if v["owner"] == ai_country and v["troops"] > 2]
-        
-        if not ai_nodes:
-            continue
+    """【新仕様】青国と緑国がそれぞれ自分の『部隊』を隣接する他国・中立の領地へランダムに移動・侵攻させる"""
+    # ループ内で辞書が変更されるのを防ぐため、コピーを作成してループ
+    all_units = list(st.session_state.units.items())
+    
+    for unit_name, u_info in all_units:
+        # AI国家の部隊だけを処理
+        if u_info["owner"] in ["AI(青)", "AI(緑)"]:
+            ai_country = u_info["owner"]
+            current_loc = u_info["location"]
             
-        # ランダムに1つの領地から出撃
-        src_node = random.choice(ai_nodes)
-        
-        # 隣接する「敵地」または「中立地」をリストアップ
-        possible_targets = [adj for adj in st.session_state.nodes[src_node]["adjacent"] if st.session_state.nodes[adj]["owner"] != ai_country]
-        
-        if not possible_targets:
-            continue
+            # 兵数が1以下の部隊は動かさない（安全のため）
+            if u_info["count"] <= 1:
+                continue
+                
+            # その部隊がいる領地から、隣接する領地を取得
+            possible_targets = st.session_state.nodes[current_loc]["adjacent"]
+            # 自分以外の領地、または中立の領地を優先してターゲットにする
+            enemy_targets = [adj for adj in possible_targets if st.session_state.nodes[adj]["owner"] != ai_country]
             
-        tgt_node = random.choice(possible_targets)
-        
-        # 半分の兵力を出撃させる
-        atk_troops = st.session_state.nodes[src_node]["troops"] // 2
-        if atk_troops < 1:
-            continue
+            # もし周りが全部自分の領地なら、通常の隣接領地を移動先にする
+            dest_targets = enemy_targets if enemy_targets else possible_targets
             
-        # 戦闘計算（簡易版）
-        ai_atk = atk_troops + random.randint(1, 10)
-        def_info = st.session_state.nodes[tgt_node]
-        def_val = def_info["troops"] + random.randint(1, 10)
-        
-        if ai_atk > def_val:
-            # AIの勝利
-            survivors = max(1, atk_troops - (def_val // 2))
-            st.session_state.nodes[src_node]["troops"] -= atk_troops
-            old_owner = st.session_state.nodes[tgt_node]["owner"]
-            st.session_state.nodes[tgt_node]["owner"] = ai_country
-            st.session_state.nodes[tgt_node]["troops"] = survivors
-            add_log(f"⚔️ 凶報: {ai_country}が {src_node} から {tgt_node}(元:{old_owner}) へ侵攻し、占領しました！")
-        else:
-            # AIの敗北
-            st.session_state.nodes[src_node]["troops"] -= atk_troops
-            st.session_state.nodes[tgt_node]["troops"] = max(1, def_info["troops"] - (atk_troops // 2))
+            if not dest_targets:
+                continue
+                
+            # ランダムに1つの移動先を決定
+            tgt_node = random.choice(dest_targets)
+            dest_owner = st.session_state.nodes[tgt_node]["owner"]
+            
+            # 部隊の位置を書き換え（移動）
+            st.session_state.units[unit_name]["location"] = tgt_node
+            
+            # 移動先が他国または中立の場合、その領地を占領（※ステップ1用の簡易戦闘）
+            if dest_owner != ai_country:
+                st.session_state.nodes[tgt_node]["owner"] = ai_country
+                add_log(f"⚔️ 凶報: {ai_country}の「{unit_name}」が {tgt_node}(元:{dest_owner}) へ侵攻し、領地を奪いました！")
 # --- 3. 共通関数 ---
 def add_log(text):
     st.session_state.log.insert(0, f"【T{st.session_state.turn}】{text}")
