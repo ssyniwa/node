@@ -452,8 +452,8 @@ elif st.session_state.phase == "戦場フェーズ":
                     continue;
                 }}
                 
-                // プレイヤーの弾が敵にヒット
-                if(b.side === 'p' && b.x >= e_x - 25 && b.x <= e_x + 25 && b.y >= e_y - 25 && b.y <= e_y + 25) {{
+                // プレイヤーの弾が敵にヒット（敵の円の範囲内に入ったら命中）
+                if(b.side === 'p' && Math.abs(b.x - e_x) <= 25 && Math.abs(b.y - e_y) <= 25) {{
                     e_hp -= {p_atk} * (0.8 + Math.random()*0.4);
                     bullets.splice(i, 1);
                     if(e_hp <= 0) {{ endBattle('WIN'); break; }}
@@ -461,7 +461,7 @@ elif st.session_state.phase == "戦場フェーズ":
                 }}
                 
                 // 敵の弾がプレイヤーにヒット
-                if(b.side === 'e' && b.x <= p_x + 25 && b.x >= p_x - 25 && b.y >= p_y - 25 && b.y <= p_y + 25) {{
+                if(b.side === 'e' && Math.abs(b.x - p_x) <= 25 && Math.abs(b.y - p_y) <= 25) {{
                     p_hp -= {e_atk} * (0.8 + Math.random()*0.4);
                     bullets.splice(i, 1);
                     if(p_hp <= 0) {{ endBattle('LOSE'); break; }}
