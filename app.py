@@ -53,11 +53,11 @@ if "map_generated" not in st.session_state:
     # 初期AI部隊の配備
     st.session_state.units["AI青軍第1部隊"] = {
         "owner": "AI(青)", "captain": {"name": "AI将軍A", "atk": 10, "dfn": 10, "mot": 5, "image": "assets/aia.png"},
-        "soldier_type": "砲撃部隊", "count": 6, "location": "領地_2", "moved": False
+        "soldier_type": "砲撃部隊", "count": 6, "location": "領地_4", "moved": False
     }
     st.session_state.units["AI緑軍第1部隊"] = {
         "owner": "AI(緑)", "captain": {"name": "AI将軍B", "atk": 10, "dfn": 10, "mot": 5, "image": "assets/aib.png"},
-        "soldier_type": "銃撃部隊", "count": 12, "location": "領地_3", "moved": False
+        "soldier_type": "銃撃部隊", "count": 12, "location": "領地_7", "moved": False
     }
 
     # 戦闘結果をJavaScriptから受け取るためのトリガー変数
