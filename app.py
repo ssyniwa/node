@@ -23,18 +23,18 @@ SOLDIER_TYPES = {
 CAPTAIN_POOL = [
     {"name": "レオニダス", "atk": 15, "dfn": 10, "mot": 5},
     {"name": "ジャンヌ", "atk": 10, "dfn": 15, "mot": 8},
-    {"name": "オダ・ノブナガ", "atk": 18, "dfn": 8, "mot": 4},
+    {"name": "ノブナガ", "atk": 18, "dfn": 8, "mot": 4},
     {"name": "アーサー", "atk": 12, "dfn": 12, "mot": 6},
     {"name": "アレクサンダー", "atk": 14, "dfn": 11, "mot": 7},
 ]
 # --- AI専用の出撃待ち部隊プール ---
 AI_UNIT_POOL = [
-    {"captain": {"name": "AI・ゼウス将軍", "atk": 20, "dfn": 15}, "soldier_type": "ミサイル部隊", "count": 3},
-    {"captain": {"name": "AI・カエサル将軍", "atk": 12, "dfn": 18}, "soldier_type": "戦車部隊", "count": 5},
-    {"captain": {"name": "AI・ナポレオン将軍", "atk": 16, "dfn": 10}, "soldier_type": "砲撃部隊", "count": 8},
-    {"captain": {"name": "AI・ハンニバル将軍", "atk": 15, "dfn": 12}, "soldier_type": "戦闘機部隊", "count": 4},
-    {"captain": {"name": "AI・チンギスハーン将軍", "atk": 14, "dfn": 8}, "soldier_type": "銃撃部隊", "count": 15},
-    {"captain": {"name": "AI・シバ将軍", "atk": 10, "dfn": 10}, "soldier_type": "銃撃部隊", "count": 10},
+    {"captain": {"name": "ゼウス", "atk": 20, "dfn": 15}, "soldier_type": "ミサイル部隊", "count": 3},
+    {"captain": {"name": "カエサル", "atk": 12, "dfn": 18}, "soldier_type": "戦車部隊", "count": 5},
+    {"captain": {"name": "ナポレオン", "atk": 16, "dfn": 10}, "soldier_type": "砲撃部隊", "count": 8},
+    {"captain": {"name": "ハンニバル", "atk": 15, "dfn": 12}, "soldier_type": "戦闘機部隊", "count": 4},
+    {"captain": {"name": "チンギスハーン", "atk": 14, "dfn": 8}, "soldier_type": "銃撃部隊", "count": 15},
+    {"captain": {"name": "シバ", "atk": 10, "dfn": 10}, "soldier_type": "銃撃部隊", "count": 10},
 ]
 # --- 2. セッション状態の初期化 ---
 if "map_generated" not in st.session_state:
@@ -50,7 +50,15 @@ if "map_generated" not in st.session_state:
     
     st.session_state.units = {}
     
-    
+    # 初期AI部隊の配備
+    st.session_state.units["AI青軍第1部隊"] = {
+        "owner": "AI(青)", "captain": {"name": "AI将軍A", "atk": 10, "dfn": 10, "mot": 5},
+        "soldier_type": "砲撃部隊", "count": 6, "location": "領地_2", "moved": False
+    }
+    st.session_state.units["AI緑軍第1部隊"] = {
+        "owner": "AI(緑)", "captain": {"name": "AI将軍B", "atk": 10, "dfn": 10, "mot": 5},
+        "soldier_type": "銃撃部隊", "count": 12, "location": "領地_3", "moved": False
+    }
 
     # 戦闘結果をJavaScriptから受け取るためのトリガー変数
     st.session_state.battle_result = None
