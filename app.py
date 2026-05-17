@@ -21,20 +21,20 @@ SOLDIER_TYPES = {
 }
 
 CAPTAIN_POOL = [
-    {"name": "レオニダス", "atk": 15, "dfn": 10, "mot": 5},
-    {"name": "ジャンヌ", "atk": 10, "dfn": 15, "mot": 8},
-    {"name": "ノブナガ", "atk": 18, "dfn": 8, "mot": 4},
-    {"name": "アーサー", "atk": 12, "dfn": 12, "mot": 6},
-    {"name": "アレクサンダー", "atk": 14, "dfn": 11, "mot": 7},
+    {"name": "レオニダス", "atk": 15, "dfn": 10, "mot": 5, "image": "assets/reonidas.png"},
+    {"name": "ジャンヌ", "atk": 10, "dfn": 15, "mot": 8, "image": "assets/zannu.png"},
+    {"name": "ノブナガ", "atk": 18, "dfn": 8, "mot": 4, "image": "assets/nobunaga.png"},
+    {"name": "アーサー", "atk": 12, "dfn": 12, "mot": 6, "image": "assets/arther.png"},
+    {"name": "アレクサンダー", "atk": 14, "dfn": 11, "mot": 7, "image": "assets/arexander.png"},
 ]
 # --- AI専用の出撃待ち部隊プール ---
 AI_UNIT_POOL = [
-    {"captain": {"name": "ゼウス", "atk": 20, "dfn": 15}, "soldier_type": "ミサイル部隊", "count": 3},
-    {"captain": {"name": "カエサル", "atk": 12, "dfn": 18}, "soldier_type": "戦車部隊", "count": 5},
-    {"captain": {"name": "ナポレオン", "atk": 16, "dfn": 10}, "soldier_type": "砲撃部隊", "count": 8},
-    {"captain": {"name": "ハンニバル", "atk": 15, "dfn": 12}, "soldier_type": "戦闘機部隊", "count": 4},
-    {"captain": {"name": "チンギスハーン", "atk": 14, "dfn": 8}, "soldier_type": "銃撃部隊", "count": 15},
-    {"captain": {"name": "シバ", "atk": 10, "dfn": 10}, "soldier_type": "銃撃部隊", "count": 10},
+    {"captain": {"name": "ゼウス", "atk": 20, "dfn": 15, "image": "assets/zeusu.png"}, "soldier_type": "ミサイル部隊", "count": 3},
+    {"captain": {"name": "カエサル", "atk": 12, "dfn": 18, "image": "assets/kaesaru.png"}, "soldier_type": "戦車部隊", "count": 5},
+    {"captain": {"name": "ナポレオン", "atk": 16, "dfn": 10, "image": "assets/naporeon.png"}, "soldier_type": "砲撃部隊", "count": 8},
+    {"captain": {"name": "ハンニバル", "atk": 15, "dfn": 12, "image": "assets/hannibaru.png"}, "soldier_type": "戦闘機部隊", "count": 4},
+    {"captain": {"name": "チンギスハーン", "atk": 14, "dfn": 8, "image": "assets/tingishun.png"}, "soldier_type": "銃撃部隊", "count": 15},
+    {"captain": {"name": "シバ", "atk": 10, "dfn": 10, "image": "assets/siba.png"}, "soldier_type": "銃撃部隊", "count": 10},
 ]
 # --- 2. セッション状態の初期化 ---
 if "map_generated" not in st.session_state:
@@ -52,11 +52,11 @@ if "map_generated" not in st.session_state:
     
     # 初期AI部隊の配備
     st.session_state.units["AI青軍第1部隊"] = {
-        "owner": "AI(青)", "captain": {"name": "AI将軍A", "atk": 10, "dfn": 10, "mot": 5},
+        "owner": "AI(青)", "captain": {"name": "AI将軍A", "atk": 10, "dfn": 10, "mot": 5, "image": "assets/aia.png"},
         "soldier_type": "砲撃部隊", "count": 6, "location": "領地_2", "moved": False
     }
     st.session_state.units["AI緑軍第1部隊"] = {
-        "owner": "AI(緑)", "captain": {"name": "AI将軍B", "atk": 10, "dfn": 10, "mot": 5},
+        "owner": "AI(緑)", "captain": {"name": "AI将軍B", "atk": 10, "dfn": 10, "mot": 5, "image": "assets/aib.png"},
         "soldier_type": "銃撃部隊", "count": 12, "location": "領地_3", "moved": False
     }
 
@@ -261,6 +261,11 @@ elif st.session_state.phase == "内政":
 elif st.session_state.phase == "部隊確保":
     cand = st.session_state.current_candidate
     st.info(f"【部隊確保フェーズ】仕官希望者: {cand['name']} (攻撃:{cand['atk']}/防御:{cand['dfn']})")
+    try:
+        st.image(cand["image"], caption=cand["name"], use_container_width=True)
+    except:
+        # 万が一画像ファイルがない場合のダミー枠
+        st.warning(f"📷 画像なし\n({cand['name']})")
     col_hire, col_pass = st.columns(2)
     if col_hire.button("🤝 雇用する (60G)"):
         if st.session_state.country_data["プレイヤー(赤)"]["gold"] >= 60:
@@ -373,17 +378,38 @@ elif st.session_state.phase == "戦場フェーズ":
     p_color = SOLDIER_TYPES[p_soldier]["color"]
     e_color = SOLDIER_TYPES[e_soldier]["color"]
 
-    # 左右のステータス表示
+    # 左右のステータス表示（画像つき）
     col_p, col_vs, col_e = st.columns([2, 1, 2])
+    
     with col_p:
         st.markdown(f"### 🔴 我軍: {b_info['player_unit_name']}")
-        st.write(f"隊長: {p_unit['captain']['name']} | 兵種: **{p_soldier}** (x{p_unit['count']})")
+        
+        # 💡 プレイヤー将軍の画像を表示
+        if "image" in p_unit["captain"]:
+            try:
+                st.image(p_unit["captain"]["image"], width=120)
+            except:
+                st.text("👤 [No Image]")
+                
+        st.markdown(f"**隊長:** {p_unit['captain']['name']}")
+        st.write(f"兵種: **{p_soldier}** (x{p_unit['count']})")
         st.write(f"基礎攻撃力: {p_atk} / 弾丸射程: **{p_range}px**")
+        
     with col_vs:
-        st.markdown("<h2 style='text-align:center; color:yellow; margin-top:20px;'>VS</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align:center; color:yellow; margin-top:50px;'>VS</h2>", unsafe_allow_html=True)
+        
     with col_e:
         st.markdown(f"### 🔵 敵軍: {b_info['enemy_unit_name']} ({e_unit['owner']})")
-        st.write(f"隊長: {e_unit['captain']['name']} | 兵種: **{e_soldier}** (x{e_unit['count']})")
+        
+        # 💡 AI将軍の画像を表示
+        if "image" in e_unit["captain"]:
+            try:
+                st.image(e_unit["captain"]["image"], width=120)
+            except:
+                st.text("👤 [No Image]")
+                
+        st.markdown(f"**隊長:** {e_unit['captain']['name']}")
+        st.write(f"兵種: **{e_soldier}** (x{e_unit['count']})")
         st.write(f"基礎攻撃力: {e_atk} / 弾丸射程: **{e_range}px**")
 
     # --- HTML5 Canvas + JavaScript 弾幕前進エンジン ---
