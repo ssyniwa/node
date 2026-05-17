@@ -26,6 +26,9 @@ CAPTAIN_POOL = [
     {"name": "ノブナガ", "atk": 18, "dfn": 8, "mot": 4, "image": "assets/nobunaga.png"},
     {"name": "アーサー", "atk": 12, "dfn": 12, "mot": 6, "image": "assets/arther.png"},
     {"name": "アレクサンダー", "atk": 14, "dfn": 11, "mot": 7, "image": "assets/arexander.png"},
+    {"name": "あかね", "atk": 13, "dfn": 14, "mot": 10, "image": "assets/akane.png"},
+    {"name": "しずく", "atk": 16, "dfn": 16, "mot": 12, "image": "assets/sizuku.png"},
+    {"name": "みつば", "atk": 12, "dfn": 18, "mot": 13, "image": "assets/mituba.png"},
 ]
 # --- AI専用の出撃待ち部隊プール ---
 AI_UNIT_POOL = [
