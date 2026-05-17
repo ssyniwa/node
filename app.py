@@ -348,7 +348,7 @@ elif st.session_state.phase == "戦場フェーズ":
         st.write(f"隊長: {e_unit['captain']['name']} | 兵種: **{e_soldier}** (x{e_unit['count']})")
         st.write(f"基礎攻撃力: {e_atk} / 弾丸射程: **{e_range}px**")
 
-    # --- HTML5 Canvas + JavaScript 弾幕前進エンジン ---
+    # --- HTML5 Canvas + JavaScript 弾幕前進エンジン（バグ修正版） ---
     battle_canvas_html = f"""
     <div style="text-align: center; background: #222; padding: 15px; border-radius: 8px;">
         <canvas id="battleCanvas" width="900" height="350" style="background:#111111; border:3px solid #555; max-width:100%;"></canvas>
@@ -365,11 +365,11 @@ elif st.session_state.phase == "戦場フェーズ":
         const p_max = {p_max_hp};
         const e_max = {e_max_hp};
         
-        // 💡 位置変数を可変に
+        // 位置変数を可変に
         let p_x = 80, p_y = 175;
         let e_x = 820, e_y = 175;
         
-        // 💡 各軍の移動速度（前進スピード）
+        // 各軍の移動速度（前進スピード）
         const p_speed = 1.5;
         const e_speed = 1.5;
         
@@ -394,35 +394,34 @@ elif st.session_state.phase == "戦場フェーズ":
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawHPBars();
             
-            // 💡 【新機能】間合い詰め（前進）ロジック
-            // 現在の敵味方の直線距離を計算
+            // 間合い詰め（前進）ロジック
             let current_distance = Math.abs(e_x - p_x);
             
-            # プレイヤー部隊の前進判定（敵が自分の射程外、かつ衝突していないなら前進）
+            // プレイヤー部隊の前進判定（敵が自分の射程外、かつ衝突していないなら前進）
             if (current_distance > {p_range} && p_x < e_x - 50) {{
                 p_x += p_speed;
             }}
-            # 敵部隊の前進判定（プレイヤーが自分の射程外、かつ衝突していないなら前進）
+            // 敵部隊の前進判定（プレイヤーが自分の射程外、かつ衝突していないなら前進）
             if (current_distance > {e_range} && e_x > p_x + 50) {{
                 e_x -= e_speed;
             }}
             
-            // 1. 部隊（コア陣形）の描画（前進に合わせて動きます）
+            // 1. 部隊（コア陣形）の描画
             ctx.fillStyle = '{p_color}';
             ctx.beginPath(); ctx.arc(p_x, p_y, 25, 0, Math.PI*2); ctx.fill();
             ctx.fillStyle = '#fff'; ctx.font = '14px sans-serif'; ctx.fillText('🔴', p_x-8, p_y+4);
             
             ctx.fillStyle = '{e_color}';
             ctx.beginPath(); ctx.arc(e_x, e_y, 25, 0, Math.PI*2); ctx.fill();
-            ctx.fillStyle = '#fff'; ctx.fillText('🔵', e_x-8, e_y+4);
+            ctx.fillStyle = '#fff'; ctx.font = '14px sans-serif'; ctx.fillText('🔵', e_x-8, e_y+4);
             
-            // 2. 弾の自動発射（発射位置も現在地に追従）
+            // 2. 弾の自動発射
             if(Math.random() < 0.08 && p_hp > 0) {{
                 bullets.push({{
                     x: p_x + 25, 
                     y: p_y + (Math.random()*20-10), 
                     vx: 7, 
-                    max_x: p_x + {p_range}, // 発射した時点の現在地から射程分だけ飛ぶ
+                    max_x: p_x + {p_range}, 
                     side: 'p', 
                     color: '{p_color}'
                 }});
@@ -453,7 +452,7 @@ elif st.session_state.phase == "戦場フェーズ":
                     continue;
                 }}
                 
-                // プレイヤーの弾が敵にヒット（敵の現在地 e_x を基準に判定）
+                // プレイヤーの弾が敵にヒット
                 if(b.side === 'p' && b.x >= e_x - 25 && b.x <= e_x + 25 && b.y >= e_y - 25 && b.y <= e_y + 25) {{
                     e_hp -= {p_atk} * (0.8 + Math.random()*0.4);
                     bullets.splice(i, 1);
@@ -461,7 +460,7 @@ elif st.session_state.phase == "戦場フェーズ":
                     continue;
                 }}
                 
-                // 敵の弾がプレイヤーにヒット（プレイヤーの現在地 p_x を基準に判定）
+                // 敵の弾がプレイヤーにヒット
                 if(b.side === 'e' && b.x <= p_x + 25 && b.x >= p_x - 25 && b.y >= p_y - 25 && b.y <= p_y + 25) {{
                     p_hp -= {e_atk} * (0.8 + Math.random()*0.4);
                     bullets.splice(i, 1);
