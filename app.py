@@ -262,7 +262,7 @@ elif st.session_state.phase == "部隊確保":
     cand = st.session_state.current_candidate
     st.info(f"【部隊確保フェーズ】仕官希望者: {cand['name']} (攻撃:{cand['atk']}/防御:{cand['dfn']})")
     try:
-        st.image(cand["image"], caption=cand["name"], use_container_width=True)
+        st.image(cand["image"], caption=cand["name"], width=320)
     except:
         # 万が一画像ファイルがない場合のダミー枠
         st.warning(f"📷 画像なし\n({cand['name']})")
@@ -387,7 +387,7 @@ elif st.session_state.phase == "戦場フェーズ":
         # 💡 プレイヤー将軍の画像を表示
         if "image" in p_unit["captain"]:
             try:
-                st.image(p_unit["captain"]["image"], width=120)
+                st.image(p_unit["captain"]["image"], width=320)
             except:
                 st.text("👤 [No Image]")
                 
@@ -404,7 +404,7 @@ elif st.session_state.phase == "戦場フェーズ":
         # 💡 AI将軍の画像を表示
         if "image" in e_unit["captain"]:
             try:
-                st.image(e_unit["captain"]["image"], width=120)
+                st.image(e_unit["captain"]["image"], width=320)
             except:
                 st.text("👤 [No Image]")
                 
