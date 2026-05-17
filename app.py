@@ -386,11 +386,7 @@ elif st.session_state.phase == "戦場フェーズ":
         st.write(f"隊長: {e_unit['captain']['name']} | 兵種: **{e_soldier}** (x{e_unit['count']})")
         st.write(f"基礎攻撃力: {e_atk} / 弾丸射程: **{e_range}px**")
 
-    # 💡【重要】自動遷移のハック：JSからこの入力欄へ勝敗結果（"WIN" / "LOSE"）を叩き込ませます
-    # 普段は見えないように st.empty() の中に隠しコンテナとして配置
-    battle_trigger = st.text_input("BATTLE_STATUS_TRIGGER", value="NONE", key="battle_js_trigger", label_visibility="collapsed")
-
-    # --- HTML5 Canvas + JavaScript 弾幕前進エンジン（自動遷移修正版） ---
+    # --- HTML5 Canvas + JavaScript 弾幕前進エンジン ---
     battle_canvas_html = f"""
     <div style="text-align: center; background: #222; padding: 15px; border-radius: 8px;">
         <canvas id="battleCanvas" width="900" height="350" style="background:#111111; border:3px solid #555; max-width:100%;"></canvas>
@@ -478,50 +474,41 @@ elif st.session_state.phase == "戦場フェーズ":
 
         function endBattle(result) {{
             battleOver = true;
-            document.getElementById('statusText').innerText = result === 'WIN' ? '🎉 作戦成功！敵部隊を撃破しました！' : '💀 作戦失敗... 我軍は壊滅しました。';
-            
-            // 💡 【修正点】親画面（Streamlit）の隠し input 要素を直接書き換えて、発火イベントを発生させる
-            setTimeout(() => {{
-                // Streamlitの全インプット要素の中から対象を特定して値をセット
-                const inputs = window.parent.document.querySelectorAll('input');
-                for (let i = 0; i < inputs.length; i++) {{
-                    if (inputs[i].getAttribute('aria-label') === 'BATTLE_STATUS_TRIGGER') {{
-                        inputs[i].value = result;
-                        // Streamlitに値が変わったことを強制的に通知するイベント
-                        inputs[i].dispatchEvent(new Event('input', {{ bubbles: true }}));
-                        inputs[i].dispatchEvent(new Event('change', {{ bubbles: true }}));
-                        break;
-                    }}
-                }}
-            }}, 2000);
+            document.getElementById('statusText').innerText = result === 'WIN' ? '🎉 WIN！敵部隊の撃破を確認しました！下のボタンを押してリザルトを確定してください。' : '💀 LOSE... 我軍の壊滅を確認しました。下のボタンを押して戻ってください。';
         }}
 
         animate();
     </script>
     """
     
-    # Canvasを表示
-    components.html(battle_canvas_html, height=440)
+    # Canvasを画面にレンダリング
+    components.html(battle_canvas_html, height=430)
     
-    # 手動スキップ用のボタン（保険）
-    st.write("※通常は自動でマップに戻りますが、止まった場合は以下で強制確定できます。")
+    # --- Streamlit側で確実にキャッチする結果確定UI ---
+    st.markdown("### 📝 戦闘結果の確定")
+    st.info("上のミニ画面で勝敗（WIN / LOSE）が決まったら、該当するボタンを押して戦果を記録してください。")
+    
     col_w, col_l = st.columns(2)
-    forced_win = col_w.button("🏆 即座に勝利を確定する")
-    forced_lose = col_l.button("🏳️ 即座に撤退・敗北する")
     
-    # 💡 【判定ロジック】JSが書き換えたトリガーか、手動ボタンのどちらかが反応したらデータ処理を実行
-    if battle_trigger == "WIN" or forced_win:
-        add_log(f"⚔️【大勝利】{b_info['player_unit_name']}が{b_info['target_node']}で{b_info['enemy_unit_name']}を撃破！")
-        # 敵部隊の消滅と領地の赤化
-        st.session_state.units[b_info["enemy_unit_name"]]["count"] = 0
-        st.session_state.nodes[b_info["target_node"]]["owner"] = "プレイヤー(赤)"
-        # フェーズを安全に侵攻へ戻す
-        st.session_state.phase = "侵攻"
-        st.rerun()
-        
-    elif battle_trigger == "LOSE" or forced_lose:
-        add_log(f"⚔️【惨敗】{b_info['player_unit_name']}は{b_info['target_node']}の戦闘で壊滅しました...")
-        # 自軍部隊の消滅
-        st.session_state.units[b_info["player_unit_name"]]["count"] = 0
-        st.session_state.phase = "侵攻"
-        st.rerun()
+    with col_w:
+        if st.button("🏆 我軍の「勝利(WIN)」を確定して領地を占領", use_container_width=True):
+            add_log(f"⚔️【大勝利】{b_info['player_unit_name']}が{b_info['target_node']}で{b_info['enemy_unit_name']}を撃破！")
+            # 敵部隊の消滅と領地の占領
+            if b_info["enemy_unit_name"] in st.session_state.units:
+                st.session_state.units[b_info["enemy_unit_name"]]["count"] = 0
+            st.session_state.nodes[b_info["target_node"]]["owner"] = "プレイヤー(赤)"
+            
+            # 状態をリセットして侵攻フェーズへ
+            st.session_state.phase = "侵攻"
+            st.rerun()
+            
+    with col_l:
+        if st.button("🏳️ 我軍の「敗北(LOSE)」を確定して部隊解散", use_container_width=True):
+            add_log(f"⚔️【惨敗】{b_info['player_unit_name']}は{b_info['target_node']}の戦闘で壊滅しました...")
+            # 自軍部隊の消滅
+            if b_info["player_unit_name"] in st.session_state.units:
+                st.session_state.units[b_info["player_unit_name"]]["count"] = 0
+                
+            # 状態をリセットして侵攻フェーズへ
+            st.session_state.phase = "侵攻"
+            st.rerun()
