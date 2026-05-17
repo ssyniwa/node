@@ -27,7 +27,15 @@ CAPTAIN_POOL = [
     {"name": "アーサー", "atk": 12, "dfn": 12, "mot": 6},
     {"name": "アレクサンダー", "atk": 14, "dfn": 11, "mot": 7},
 ]
-
+# --- AI専用の出撃待ち部隊プール ---
+AI_UNIT_POOL = [
+    {"captain": {"name": "AI・ゼウス将軍", "atk": 20, "dfn": 15}, "soldier_type": "ミサイル部隊", "count": 3},
+    {"captain": {"name": "AI・カエサル将軍", "atk": 12, "dfn": 18}, "soldier_type": "戦車部隊", "count": 5},
+    {"captain": {"name": "AI・ナポレオン将軍", "atk": 16, "dfn": 10}, "soldier_type": "砲撃部隊", "count": 8},
+    {"captain": {"name": "AI・ハンニバル将軍", "atk": 15, "dfn": 12}, "soldier_type": "戦闘機部隊", "count": 4},
+    {"captain": {"name": "AI・チンギスハーン将軍", "atk": 14, "dfn": 8}, "soldier_type": "銃撃部隊", "count": 15},
+    {"captain": {"name": "AI・シバ将軍", "atk": 10, "dfn": 10}, "soldier_type": "銃撃部隊", "count": 10},
+]
 # --- 2. セッション状態の初期化 ---
 if "map_generated" not in st.session_state:
     st.session_state.map_generated = True
@@ -42,15 +50,7 @@ if "map_generated" not in st.session_state:
     
     st.session_state.units = {}
     
-    # 初期AI部隊の配備
-    st.session_state.units["AI青軍第1部隊"] = {
-        "owner": "AI(青)", "captain": {"name": "AI将軍A", "atk": 10, "dfn": 10, "mot": 5},
-        "soldier_type": "砲撃部隊", "count": 6, "location": "領地_2", "moved": False
-    }
-    st.session_state.units["AI緑軍第1部隊"] = {
-        "owner": "AI(緑)", "captain": {"name": "AI将軍B", "atk": 10, "dfn": 10, "mot": 5},
-        "soldier_type": "銃撃部隊", "count": 12, "location": "領地_3", "moved": False
-    }
+    
 
     # 戦闘結果をJavaScriptから受け取るためのトリガー変数
     st.session_state.battle_result = None
@@ -94,29 +94,59 @@ def add_log(text):
     st.session_state.log.insert(0, f"【T{st.session_state.turn}】{text}")
 
 def run_ai_turn():
-    """AI部隊の自動移動"""
-    all_units = list(st.session_state.units.items())
-    for unit_name, u_info in all_units:
-        if u_info["owner"] in ["AI(青)", "AI(緑)"]:
-            ai_country = u_info["owner"]
-            current_loc = u_info["location"]
-            if u_info["count"] <= 0: continue
-                
-            possible_targets = st.session_state.nodes[current_loc]["adjacent"]
-            enemy_targets = [adj for adj in possible_targets if st.session_state.nodes[adj]["owner"] != ai_country]
-            dest_targets = enemy_targets if enemy_targets else possible_targets
+    """【AI専用リスト出撃版】青国と緑国が、専用プールからランダムに部隊を編成し、前線から出撃させる"""
+    for ai_country in ["AI(青)", "AI(緑)"]:
+        # 1. 現在のこのAI国家の領地をすべてリストアップ
+        ai_nodes = [k for k, v in st.session_state.nodes.items() if v["owner"] == ai_country]
+        if not ai_nodes:
+            continue  # 領地がなければ出撃できない
             
-            if not dest_targets: continue
-            tgt_node = random.choice(dest_targets)
-            
-            # AIの移動先に誰かいるかチェック
-            is_occupied = any(ui["location"] == tgt_node for ui in st.session_state.units.values())
-            
-            st.session_state.units[unit_name]["location"] = tgt_node
-            if st.session_state.nodes[tgt_node]["owner"] != ai_country and not is_occupied:
-                st.session_state.nodes[tgt_node]["owner"] = ai_country
-                add_log(f"⚔️ 凶報: {ai_country}の「{unit_name}」が {tgt_node} へ侵攻、無人地を確保。")
-
+        # 2. 敵（プレイヤーや中立）と隣接している「前線ノード」を優先的に探す
+        frontline_nodes = []
+        for node in ai_nodes:
+            # 隣接に自分以外の国がいればそこは前線
+            if any(st.session_state.nodes[adj]["owner"] != ai_country for adj in st.session_state.nodes[node]["adjacent"]):
+                frontline_nodes.append(node)
+        
+        # もし前線がなければ、自分の領地すべてを出撃候補にする
+        spawn_nodes = frontline_nodes if frontline_nodes else ai_nodes
+        
+        # 出撃の起点となる領地をランダムに決定
+        start_node = random.choice(spawn_nodes)
+        
+        # 3. その起点から「攻め込める隣接ターゲット（他国 or 中立）」を決定
+        possible_targets = st.session_state.nodes[start_node]["adjacent"]
+        enemy_targets = [adj for adj in possible_targets if st.session_state.nodes[adj]["owner"] != ai_country]
+        
+        # 攻め込む先（目的地）。周囲がすべて自領なら、通常の隣接ノードへ移動
+        target_node = random.choice(enemy_targets) if enemy_targets else random.choice(possible_targets)
+        
+        # 4. 【新機軸】AI専用プールからランダムに1部隊をコピーしてインスタンス化
+        pool_template = random.choice(AI_UNIT_POOL)
+        
+        # 固有の部隊名を生成（例: AI青軍_ゼウス将軍部隊_T3）
+        ai_unit_name = f"{ai_country.replace('(','').replace(')','')}_{pool_template['captain']['name']}部隊_T{st.session_state.turn}"
+        
+        # グローバル部隊データ（st.session_state.units）に実体化させて目的地に配置！
+        st.session_state.units[ai_unit_name] = {
+            "owner": ai_country,
+            "captain": pool_template["captain"].copy(),
+            "soldier_type": pool_template["soldier_type"],
+            "count": pool_template["count"],
+            "location": target_node, # 目的地へ直接出現（出撃）
+            "moved": True            # 出現ターンは行動済み
+        }
+        
+        # 5. 目的地に誰も部隊がいない場合、領地の支配権を書き換える
+        # （もしプレイヤー部隊がいたら、プレイヤーの侵攻時に戦闘になります）
+        is_occupied = any(ui["location"] == target_node and ui["count"] > 0 for ui in st.session_state.units.values() if ui["owner"] != ai_country)
+        
+        if st.session_state.nodes[target_node]["owner"] != ai_country:
+            if not is_occupied:
+                st.session_state.nodes[target_node]["owner"] = ai_country
+                add_log(f"⚔️ 凶報: {ai_country}がプールから「{pool_template['captain']['name']}」を召喚！ {target_node}へ出撃し占領しました！")
+            else:
+                add_log(f"⚠️ 警告: {ai_country}の「{pool_template['captain']['name']}」が 我軍の潜む {target_node} へ向けて出撃！一触即発です！")
 def generate_improved_node_label(node_id, info):
     owner = info["owner"]
     owner_icon = "👤" if owner == "プレイヤー(赤)" else "🤖" if owner.startswith("AI") else "🏳️"
