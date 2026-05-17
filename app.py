@@ -124,7 +124,7 @@ def generate_improved_node_label(node_id, info):
     
     unit_text = ""
     if staying_units:
-        unit_details = [f"[{st.session_state.units[uname]['captain']['name']}:{st.session_state.units[uname]['soldier_type']}x{st.session_state.units[uname]['count']}]" for uname in staying_units]
+        unit_details = [f"[{st.session_state.units[uname]['captain']['name']}]" for uname in staying_units]
         unit_text = "\n" + "\n".join(unit_details)
     else:
         unit_text = "\n(部隊なし)"
