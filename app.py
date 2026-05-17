@@ -128,7 +128,7 @@ def generate_improved_node_label(node_id, info):
         unit_text = "\n" + "\n".join(unit_details)
     else:
         unit_text = "\n(部隊なし)"
-    return f"{node_id}\n{owner_icon}{owner}\n💰経済: {info['economy']}G{unit_text}"
+    return f"{node_id}\n{owner_icon}\n{unit_text}"
 
 def generate_hover_title(node_id, info):
     staying_units = [u_name for u_name, u_info in st.session_state.units.items() if u_info["location"] == node_id and u_info["count"] > 0]
