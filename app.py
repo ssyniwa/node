@@ -69,8 +69,8 @@ if "map_generated" not in st.session_state:
     for i in range(num_nodes):
         node_id = f"領地_{i+1}"
         if i == 0: owner = "プレイヤー(赤)"
-        elif i == 1: owner = "AI(青)"
-        elif i == 2: owner = "AI(緑)"
+        elif i == 3: owner = "AI(青)"
+        elif i == 6: owner = "AI(緑)"
         else: owner = "中立"
         
         nodes[node_id] = {
