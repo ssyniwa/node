@@ -232,13 +232,20 @@ st.divider()
 
 # --- 5. フェーズ管理UI ---
 if st.session_state.phase == "資金確保":
-    st.info("【資金確保フェーズ】領地の経済力に応じて資金を獲得します。")
+    st.info("【資金確保フェーズ】領地の経済力に応じて資金を獲得し、全部隊の行動権が回復します。")
     if st.button("💰 資金を回収して内政へ"):
+        # プレイヤーとAIの資金回収
         for country in st.session_state.country_data:
             earned = sum(n["economy"] for n in st.session_state.nodes.values() if n["owner"] == country)
             st.session_state.country_data[country]["gold"] += earned
             if country == "プレイヤー(赤)":
                 add_log(f"領地から {earned} G の資金を回収しました。")
+                
+        # 💡 新機能: ターン開始時にすべてのプレイヤー部隊の行動済みフラグをリセット
+        for u_name, u_info in st.session_state.units.items():
+            if u_info["owner"] == "プレイヤー(赤)":
+                st.session_state.units[u_name]["moved"] = False
+                
         st.session_state.phase = "内政"
         st.rerun()
 
@@ -345,54 +352,78 @@ elif st.session_state.phase == "部隊配置":
 
 
 elif st.session_state.phase == "侵攻":
-    st.info("【侵攻フェーズ】自分の部隊を選択し、隣接する領地へ移動・侵攻させます。")
+    st.info("【侵攻フェーズ】部隊を選択し、隣接領地へ移動・侵攻させます。（1部隊につき1ターン1回まで移動可能）")
     
-    # 1. プレイヤーが動かせる「自分の部隊」をリストアップ
-    player_units = {u_name: u_info for u_name, u_info in st.session_state.units.items() if u_info["owner"] == "プレイヤー(赤)"}
+    # 1. プレイヤーの部隊のうち、「まだこのターン動いていない（movedがFalse）」部隊だけを抽出
+    player_units = {
+        u_name: u_info for u_name, u_info in st.session_state.units.items() 
+        if u_info["owner"] == "プレイヤー(赤)" and not u_info.get("moved", False)
+    }
+    
+    # すでに動かした（行動済み）部隊のリスト（画面表示用）
+    moved_units_names = {
+        u_name for u_name, u_info in st.session_state.units.items() 
+        if u_info["owner"] == "プレイヤー(赤)" and u_info.get("moved", False)
+    }
+    
+    if moved_units_names:
+        st.caption(f"⚠️ 行動済みの部隊: {', '.join(moved_units_names)}")
     
     if not player_units:
-        st.warning("現在、動かせる部隊がありません。部隊配置フェーズで部隊を結成してください。")
-        if st.button("🏁 行動せずにターン終了（次ターンへ）"):
-            run_ai_turn()
+        st.success("🎉 すべての部隊が移動を完了しました！、または動かせる部隊がありません。")
+        if st.button("🏁 ターンを終了してAIの行動へ"):
+            run_ai_turn() # AIが行動
             st.session_state.phase = "資金確保"
             st.session_state.turn += 1
             st.rerun()
     else:
-        # 部隊の選択
+        # 動かす部隊の選択（未行動のものだけがドロップダウンに並ぶ）
         selected_unit_name = st.selectbox("動かす部隊を選択してください:", list(player_units.keys()))
         unit_info = player_units[selected_unit_name]
         current_loc = unit_info["location"]
         
-        st.write(f"現在の位置: **{current_loc}** ({unit_info['soldier_type']} × {unit_info['count']})")
+        st.write(f"現在地: **{current_loc}** ({unit_info['soldier_type']} × {unit_info['count']})")
         
-        # 2. その部隊がいる領地から「移動可能な隣接領地」を取得
+        # 2. 移動可能な隣接領地を取得
         possible_destinations = st.session_state.nodes[current_loc]["adjacent"]
         target_loc = st.selectbox("移動・侵攻先の領地を選択してください:", possible_destinations)
         
         dest_owner = st.session_state.nodes[target_loc]["owner"]
-        st.write(f"目的地の所有者: **{dest_owner}**")
         
-        if st.button("🚀 部隊を移動 / 侵攻開始"):
-            # 部隊の位置を書き換える（これが移動の実装になります！）
+        # 目的地に敵の部隊がいるかチェック（ステップ2への布石）
+        enemy_units_at_dest = [
+            uname for uname, uinfo in st.session_state.units.items() 
+            if uinfo["location"] == target_loc and uinfo["owner"] != "プレイヤー(赤)"
+        ]
+        
+        if len(enemy_units_at_dest) > 0:
+            st.warning(f"⚠️ 目的地 {target_loc} には敵部隊 {', '.join(enemy_units_at_dest)} が駐留しています！進軍すると戦場フェーズになります。")
+        else:
+            st.write(f"目的地の状態: **{dest_owner} (無人・中立地)**")
+            
+        # 3. 侵攻・移動ボタン（1回クリックで即座に反映）
+        if st.button("🚀 この部隊を移動させる"):
+            # 部隊の位置を更新
             st.session_state.units[selected_unit_name]["location"] = target_loc
+            # 💡 この部隊を「行動済み」にマーク（これで同一ターン内は二度と選べなくなります）
+            st.session_state.units[selected_unit_name]["moved"] = True
             
-            # 移動先が中立または無人の場合（ステップ1の暫定処理）
-            if dest_owner != "プレイヤー(赤)":
-                # 領地の支配権をプレイヤーに変更
+            # 移動先が中立または無人の場合、即座にノードをプレイヤー（赤）に変更
+            if len(enemy_units_at_dest) == 0:
                 st.session_state.nodes[target_loc]["owner"] = "プレイヤー(赤)"
-                add_log(f"【進軍】{selected_unit_name}が{current_loc}から{target_loc}へ移動し、領地を確保しました！")
+                add_log(f"【占領】{selected_unit_name}が{target_loc}へ無血開城。領地が赤国になりました！")
             else:
-                add_log(f"【移動】{selected_unit_name}が{current_loc}から同盟領地の{target_loc}へ移動しました。")
+                # 敵部隊がいる場合（※次の「ステップ2」でここに戦場遷移ロジックを入れます）
+                add_log(f"【接敵】{selected_unit_name}が{target_loc}の敵部隊と接触！")
                 
-                # プレイヤー行動後にAIが行動
-                run_ai_turn()
-                st.session_state.phase = "資金確保"
-                st.session_state.turn += 1
-                st.rerun()
-        
+            st.rerun() # 画面をリフレッシュしてマップを更新
             
-    
-        if st.button("🏁 この部隊は動かさずにターン終了"):
+        if st.button("🏁 この部隊は動かさずに待機（行動済みにする）"):
+            st.session_state.units[selected_unit_name]["moved"] = True
+            add_log(f"【待機】{selected_unit_name}は現守備位置を維持しました。")
+            st.rerun()
+            
+        if st.button("🛑 残りの部隊の移動をスキップしてターン終了"):
             run_ai_turn()
             st.session_state.phase = "資金確保"
             st.session_state.turn += 1
