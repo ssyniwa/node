@@ -386,7 +386,11 @@ elif st.session_state.phase == "戦場フェーズ":
         st.write(f"隊長: {e_unit['captain']['name']} | 兵種: **{e_soldier}** (x{e_unit['count']})")
         st.write(f"基礎攻撃力: {e_atk} / 弾丸射程: **{e_range}px**")
 
-    # --- HTML5 Canvas + JavaScript 弾幕前進エンジン（バグ修正版） ---
+    # 💡【重要】自動遷移のハック：JSからこの入力欄へ勝敗結果（"WIN" / "LOSE"）を叩き込ませます
+    # 普段は見えないように st.empty() の中に隠しコンテナとして配置
+    battle_trigger = st.text_input("BATTLE_STATUS_TRIGGER", value="NONE", key="battle_js_trigger", label_visibility="collapsed")
+
+    # --- HTML5 Canvas + JavaScript 弾幕前進エンジン（自動遷移修正版） ---
     battle_canvas_html = f"""
     <div style="text-align: center; background: #222; padding: 15px; border-radius: 8px;">
         <canvas id="battleCanvas" width="900" height="350" style="background:#111111; border:3px solid #555; max-width:100%;"></canvas>
@@ -397,17 +401,14 @@ elif st.session_state.phase == "戦場フェーズ":
         const canvas = document.getElementById('battleCanvas');
         const ctx = canvas.getContext('2d');
         
-        // 部隊・弾丸・HPデータの初期化
         let p_hp = {p_max_hp};
         let e_hp = {e_max_hp};
         const p_max = {p_max_hp};
         const e_max = {e_max_hp};
         
-        // 位置変数を可変に
         let p_x = 80, p_y = 175;
         let e_x = 820, e_y = 175;
         
-        // 各軍の移動速度（前進スピード）
         const p_speed = 1.5;
         const e_speed = 1.5;
         
@@ -415,12 +416,10 @@ elif st.session_state.phase == "戦場フェーズ":
         let battleOver = false;
 
         function drawHPBars() {{
-            // プレイヤーHPバー
             ctx.fillStyle = '#555'; ctx.fillRect(40, 20, 250, 15);
             ctx.fillStyle = '#ff4b4b'; ctx.fillRect(40, 20, (p_hp / p_max) * 250, 15);
             ctx.fillStyle = '#fff'; ctx.font = '12px sans-serif'; ctx.fillText('プレイヤーHP: ' + Math.max(0, Math.floor(p_hp)), 45, 32);
             
-            // 敵HPバー
             ctx.fillStyle = '#555'; ctx.fillRect(610, 20, 250, 15);
             ctx.fillStyle = '#1c83e1'; ctx.fillRect(610, 20, (e_hp / e_max) * 250, 15);
             ctx.fillStyle = '#fff'; ctx.fillText('敵軍HP: ' + Math.max(0, Math.floor(e_hp)), 615, 32);
@@ -432,19 +431,10 @@ elif st.session_state.phase == "戦場フェーズ":
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawHPBars();
             
-            // 間合い詰め（前進）ロジック
             let current_distance = Math.abs(e_x - p_x);
+            if (current_distance > {p_range} && p_x < e_x - 50) {{ p_x += p_speed; }}
+            if (current_distance > {e_range} && e_x > p_x + 50) {{ e_x -= e_speed; }}
             
-            // プレイヤー部隊の前進判定（敵が自分の射程外、かつ衝突していないなら前進）
-            if (current_distance > {p_range} && p_x < e_x - 50) {{
-                p_x += p_speed;
-            }}
-            // 敵部隊の前進判定（プレイヤーが自分の射程外、かつ衝突していないなら前進）
-            if (current_distance > {e_range} && e_x > p_x + 50) {{
-                e_x -= e_speed;
-            }}
-            
-            // 1. 部隊（コア陣形）の描画
             ctx.fillStyle = '{p_color}';
             ctx.beginPath(); ctx.arc(p_x, p_y, 25, 0, Math.PI*2); ctx.fill();
             ctx.fillStyle = '#fff'; ctx.font = '14px sans-serif'; ctx.fillText('🔴', p_x-8, p_y+4);
@@ -453,52 +443,29 @@ elif st.session_state.phase == "戦場フェーズ":
             ctx.beginPath(); ctx.arc(e_x, e_y, 25, 0, Math.PI*2); ctx.fill();
             ctx.fillStyle = '#fff'; ctx.font = '14px sans-serif'; ctx.fillText('🔵', e_x-8, e_y+4);
             
-            // 2. 弾の自動発射
             if(Math.random() < 0.08 && p_hp > 0) {{
-                bullets.push({{
-                    x: p_x + 25, 
-                    y: p_y + (Math.random()*20-10), 
-                    vx: 7, 
-                    max_x: p_x + {p_range}, 
-                    side: 'p', 
-                    color: '{p_color}'
-                }});
+                bullets.push({{x: p_x + 25, y: p_y + (Math.random()*20-10), vx: 7, max_x: p_x + {p_range}, side: 'p', color: '{p_color}'}});
             }}
             if(Math.random() < 0.08 && e_hp > 0) {{
-                bullets.push({{
-                    x: e_x - 25, 
-                    y: e_y + (Math.random()*20-10), 
-                    vx: -7, 
-                    max_x: e_x - {e_range}, 
-                    side: 'e', 
-                    color: '{e_color}'
-                }});
+                bullets.push({{x: e_x - 25, y: e_y + (Math.random()*20-10), vx: -7, max_x: e_x - {e_range}, side: 'e', color: '{e_color}'}});
             }}
             
-            // 3. 弾の軌道・射程判定・当たり判定ループ
             for(let i = bullets.length - 1; i >= 0; i--) {{
                 let b = bullets[i];
                 b.x += b.vx;
-                
-                // 弾丸の描画
                 ctx.fillStyle = b.color;
                 ctx.beginPath(); ctx.arc(b.x, b.y, 5, 0, Math.PI*2); ctx.fill();
                 
-                // 射程限界を超えたら消滅
                 if((b.vx > 0 && b.x > b.max_x) || (b.vx < 0 && b.x < b.max_x)) {{
-                    bullets.splice(i, 1);
-                    continue;
+                    bullets.splice(i, 1); continue;
                 }}
                 
-                // プレイヤーの弾が敵にヒット（敵の円の範囲内に入ったら命中）
                 if(b.side === 'p' && Math.abs(b.x - e_x) <= 25 && Math.abs(b.y - e_y) <= 25) {{
                     e_hp -= {p_atk} * (0.8 + Math.random()*0.4);
                     bullets.splice(i, 1);
                     if(e_hp <= 0) {{ endBattle('WIN'); break; }}
                     continue;
                 }}
-                
-                // 敵の弾がプレイヤーにヒット
                 if(b.side === 'e' && Math.abs(b.x - p_x) <= 25 && Math.abs(b.y - p_y) <= 25) {{
                     p_hp -= {e_atk} * (0.8 + Math.random()*0.4);
                     bullets.splice(i, 1);
@@ -506,7 +473,6 @@ elif st.session_state.phase == "戦場フェーズ":
                     continue;
                 }}
             }}
-            
             requestAnimationFrame(animate);
         }}
 
@@ -514,8 +480,19 @@ elif st.session_state.phase == "戦場フェーズ":
             battleOver = true;
             document.getElementById('statusText').innerText = result === 'WIN' ? '🎉 作戦成功！敵部隊を撃破しました！' : '💀 作戦失敗... 我軍は壊滅しました。';
             
+            // 💡 【修正点】親画面（Streamlit）の隠し input 要素を直接書き換えて、発火イベントを発生させる
             setTimeout(() => {{
-                window.parent.postMessage({{type: 'streamlit:setComponentValue', value: result}}, '*');
+                // Streamlitの全インプット要素の中から対象を特定して値をセット
+                const inputs = window.parent.document.querySelectorAll('input');
+                for (let i = 0; i < inputs.length; i++) {{
+                    if (inputs[i].getAttribute('aria-label') === 'BATTLE_STATUS_TRIGGER') {{
+                        inputs[i].value = result;
+                        // Streamlitに値が変わったことを強制的に通知するイベント
+                        inputs[i].dispatchEvent(new Event('input', {{ bubbles: true }}));
+                        inputs[i].dispatchEvent(new Event('change', {{ bubbles: true }}));
+                        break;
+                    }}
+                }}
             }}, 2000);
         }}
 
@@ -523,29 +500,26 @@ elif st.session_state.phase == "戦場フェーズ":
     </script>
     """
     
-    # HTMLの埋め込み実行（JavaScriptからの返り値を直接リターンとして受け取る）
-    battle_result = components.html(battle_canvas_html, height=440)
+    # Canvasを表示
+    components.html(battle_canvas_html, height=440)
     
-    # 💡 バックエンド勝敗処理（JSから 'WIN' または 'LOSE' が送られてくる、または手動決定ボタン）
-    st.write("※シミュレーションは自動で終了しますが、スキップして即時結果を確定することもできます。")
+    # 手動スキップ用のボタン（保険）
+    st.write("※通常は自動でマップに戻りますが、止まった場合は以下で強制確定できます。")
     col_w, col_l = st.columns(2)
+    forced_win = col_w.button("🏆 即座に勝利を確定する")
+    forced_lose = col_l.button("🏳️ 即座に撤退・敗北する")
     
-    # 手動・自動両対応の決着判定
-    result_trigger = None
-    if col_w.button("🏆 即座に勝利を確定する"): result_trigger = "WIN"
-    if col_l.button("🏳️ 即座に撤退・敗北する"): result_trigger = "LOSE"
-    
-    # JSからのデータがキャッチできたら反映
-    if battle_result == "WIN" or result_trigger == "WIN":
+    # 💡 【判定ロジック】JSが書き換えたトリガーか、手動ボタンのどちらかが反応したらデータ処理を実行
+    if battle_trigger == "WIN" or forced_win:
         add_log(f"⚔️【大勝利】{b_info['player_unit_name']}が{b_info['target_node']}で{b_info['enemy_unit_name']}を撃破！")
         # 敵部隊の消滅と領地の赤化
         st.session_state.units[b_info["enemy_unit_name"]]["count"] = 0
         st.session_state.nodes[b_info["target_node"]]["owner"] = "プレイヤー(赤)"
-        # フェーズをリセット
+        # フェーズを安全に侵攻へ戻す
         st.session_state.phase = "侵攻"
         st.rerun()
         
-    elif battle_result == "LOSE" or result_trigger == "LOSE":
+    elif battle_trigger == "LOSE" or forced_lose:
         add_log(f"⚔️【惨敗】{b_info['player_unit_name']}は{b_info['target_node']}の戦闘で壊滅しました...")
         # 自軍部隊の消滅
         st.session_state.units[b_info["player_unit_name"]]["count"] = 0
