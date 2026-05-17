@@ -342,7 +342,7 @@ elif st.session_state.phase == "戦場フェーズ":
         st.write(f"隊長: {p_unit['captain']['name']} | 兵種: **{p_soldier}** (x{p_unit['count']})")
         st.write(f"基礎攻撃力: {p_atk} / 弾丸射程: **{p_range}px**")
     with col_vs:
-        st.markdown("<h2 style='text-align:center; color:yellow; margin-top:20px;'>VS</h2>", unsafe_content_type=True)
+        st.markdown("<h2 style='text-align:center; color:yellow; margin-top:20px;'>VS</h2>", unsafe_allow_html=True)
     with col_e:
         st.markdown(f"### 🔵 敵軍: {b_info['enemy_unit_name']} ({e_unit['owner']})")
         st.write(f"隊長: {e_unit['captain']['name']} | 兵種: **{e_soldier}** (x{e_unit['count']})")
