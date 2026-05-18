@@ -30,6 +30,8 @@ CAPTAIN_POOL = [
     {"name": "しずく", "atk": 16, "dfn": 16, "mot": 12, "image": "assets/sizuku.png"},
     {"name": "みつば", "atk": 12, "dfn": 18, "mot": 13, "image": "assets/mituba.png"},
     {"name": "あいり", "atk": 17, "dfn": 12, "mot": 5, "image": "assets/airi.png"},
+    {"name": "カイル", "atk": 14, "dfn": 14, "mot": 9, "image": "assets/kyle.png"},
+    {"name": "ケイト", "atk": 19, "dfn": 9, "mot": 4, "image": "assets/kate.png"},
 ]
 # --- AI専用の出撃待ち部隊プール ---
 AI_UNIT_POOL = [
@@ -41,6 +43,8 @@ AI_UNIT_POOL = [
     {"captain": {"name": "ハンニバル", "atk": 15, "dfn": 12, "image": "assets/hannibaru.png"}, "soldier_type": "戦闘機部隊", "count": 4},
     {"captain": {"name": "チンギスハーン", "atk": 14, "dfn": 8, "image": "assets/tingishun.png"}, "soldier_type": "銃撃部隊", "count": 15},
     {"captain": {"name": "シバ", "atk": 10, "dfn": 10, "image": "assets/siba.png"}, "soldier_type": "銃撃部隊", "count": 10},
+    {"captain": {"name": "マリー", "atk": 13, "dfn": 14, "image": "assets/mary.png"}, "soldier_type": "砲撃部隊", "count": 6},
+    {"captain": {"name": "クレオパトラ", "atk": 17, "dfn": 11, "image": "assets/kure.png"}, "soldier_type": "戦車部隊", "count": 4},
 ]
 # --- 2. セッション状態の初期化 ---
 if "map_generated" not in st.session_state:
