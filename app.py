@@ -129,7 +129,7 @@ def generate_random_map(num_nodes):
     
 # --- 3. 共通ロジック ---
 def add_log(text):
-    st.session_state.log.insert(0, f"【T{st.session_state.turn}】{text}")
+    st.session_state.logs.insert(0, f"【T{st.session_state.turn}】{text}")
 
 def run_ai_turn():
     """【AI専用リスト出撃版】青国と緑国が、専用プールからランダムに部隊を編成し、前線から出撃させる"""
