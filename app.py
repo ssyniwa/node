@@ -94,7 +94,8 @@ def generate_random_map(num_nodes):
             "x": x,
             "y": y,
             "owner": owner,
-            "adjacent": []
+            "adjacent": [],
+            "economy": random.randint(10, 50)  # 💡 ココを追加！各領地に10〜50Gのランダムな経済力を持たせる
         }
     
     # 2. 隣接関係（エッジ）の自動接続（すべての領地がいずれかと繋がるようにする）
