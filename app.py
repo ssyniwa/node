@@ -347,6 +347,12 @@ else:
         if st.button("💰 資金を回収して内政へ"):
             for country in st.session_state.country_data:
                 earned = sum(n["economy"] for n in st.session_state.nodes.values() if n["owner"] == country)
+                # 💡 みつばのスキル判定：プレイヤー部隊の誰かに「みつば」がいればボーナス
+                has_mituba = any(u.get("captain", {}).get("skill_id") == "clover_luck" for u in st.session_state.units.values() if u["owner"] == "プレイヤー(赤)")
+
+                if has_mituba:
+                    earned += 20
+                    add_log("🍀 スキル発動【三つ葉の幸運】により、今ターンの収入が +20G されました！")
                 st.session_state.country_data[country]["gold"] += earned
             for u_name, u_info in st.session_state.units.items():
                 if u_info["owner"] == "プレイヤー(赤)": st.session_state.units[u_name]["moved"] = False
@@ -359,9 +365,18 @@ else:
         if player_nodes:
             selected_node = st.selectbox("投資する領地:", player_nodes)
             col_inv, col_skip = st.columns(2)
-            if col_inv.button("💸 50G投資する"):
-                if st.session_state.country_data["プレイヤー(赤)"]["gold"] >= 50:
-                    st.session_state.country_data["プレイヤー(赤)"]["gold"] -= 50
+            # 💡 カイルのスキル判定：プレイヤー部隊に「カイル」がいれば費用20%オフ
+            has_kyle = any(u.get("captain", {}).get("skill_id") == "iron_discipline" for u in st.session_state.units.values() if u["owner"] == "プレイヤー(赤)")
+
+            base_cost = 50  # 通常の投資コスト
+            invest_cost = int(base_cost * 0.8) if has_kyle else base_cost
+
+            if col_inv.button(f"領地を開発する (消費: {invest_cost}G)"):
+                if st.session_state.gold >= invest_cost:
+                    st.session_state.gold -= invest_cost
+                    # (ここに既存の経済UPロジック)
+                    if has_kyle:
+                        add_log("⚙️ スキル発動【鉄の規律】により、投資費用が20%割引されました。")
                     st.session_state.nodes[selected_node]["economy"] += 20
                     st.session_state.phase = "部隊確保"
                     st.session_state.current_candidate = random.choice(CAPTAIN_POOL)
@@ -543,30 +558,49 @@ else:
         <script>
             const canvas = document.getElementById('battleCanvas');
             const ctx = canvas.getContext('2d');
-            
+
             let p_hp = {p_max_hp};
             let e_hp = {e_max_hp};
+
+            // 💡 【スキル反映：AIB】敵がAIBなら最大HP+50
             const p_max = {p_max_hp};
-            const e_max = {e_max_hp};
-            
+            let e_max = {e_max_hp};
+            if ("{e_skill_id}" === "panzer_charge") {{ e_max += 50; e_hp += 50; }}
+
             let p_x = 80, p_y = 175;
             let e_x = 820, e_y = 175;
-            
-            // 💡 【スキル反映1】ジャンヌの移動速度1.5倍
+
+            // 💡 【スキル反映：ハンニバル】敵がハンニバルなら少し前進した位置から開始
+            if ("{e_skill_id}" === "alps_tactics") {{ e_x = 700; }}
+
+            // 💡 【スキル反映：ジャンヌ】
             let p_speed = 1.5;
             if ("{p_skill_id}" === "holy_prayer") {{ p_speed = 2.25; }}
             let e_speed = 1.5;
-            
-            // 💡 【スキル反映2】カエサルの敵射程アップ
+
+            // 💡 【スキル反映：カエサル】
             let p_range_val = {p_range};
             let e_range_val = {e_range};
             if ("{e_skill_id}" === "imperator_tactics") {{ e_range_val += 150; }}
-            
-            // 💡 【スキル反映3】ノブナガの連射率（発射確率）2倍
+
+            // 💡 【スキル反映：ノブナガ / クレオパトラ】
             let p_fire_rate = 0.08;
             if ("{p_skill_id}" === "three_line_fire") {{ p_fire_rate = 0.16; }}
+            if ("{e_skill_id}" === "alluring_charm") {{ p_fire_rate = 0.04; }} // プレイヤーの連射半減
             let e_fire_rate = 0.08;
-            
+
+            // 💡 【スキル反映：しずく】敵の基礎攻撃力を30%ダウン
+            let p_atk_val = {p_atk};
+            let e_atk_val = {e_atk};
+            if ("{p_skill_id}" === "clear_mind") {{ e_atk_val *= 0.7; }}
+            // 💡 【スキル反映：アレクサンダー / AIA】
+            if ("{p_skill_id}" === "phalanx_push") {{ p_atk_val += 2; }}
+            if ("{e_skill_id}" === "sky_ace" && "{e_soldier}" === "戦闘機部隊") {{ e_atk_val *= 1.3; }}
+
+            // 無敵フラグ（レオニダス用）
+            let p_is_immune = false;
+            let p_immune_used = false;
+
             let bullets = [];
             let battleOver = false;
 
@@ -574,23 +608,38 @@ else:
                 ctx.fillStyle = '#555'; ctx.fillRect(40, 20, 250, 15);
                 ctx.fillStyle = '#ff4b4b'; ctx.fillRect(40, 20, (p_hp / p_max) * 250, 15);
                 ctx.fillStyle = '#fff'; ctx.font = '12px sans-serif'; ctx.fillText('プレイヤーHP: ' + Math.max(0, Math.floor(p_hp)), 45, 32);
+                if(p_is_immune) {{ ctx.fillStyle = 'yellow'; ctx.fillText('🛡️ 絶対防御展開中！', 45, 50); }}
                 
                 ctx.fillStyle = '#555'; ctx.fillRect(610, 20, 250, 15);
                 ctx.fillStyle = '#1c83e1'; ctx.fillRect(610, 20, (e_hp / e_max) * 250, 15);
                 ctx.fillStyle = '#fff'; ctx.fillText('敵軍HP: ' + Math.max(0, Math.floor(e_hp)), 615, 32);
             }}
 
+            // 💡 【スキル反映：ケイト】開幕先制5連撃
+            if ("{p_skill_id}" === "lightning_raid") {{
+                for(let k=0; k<5; k++) {{
+                    bullets.push({{x: p_x + 50 + (k*20), y: p_y + (k*10-20), vx: 8, vy: 0, max_x: p_x + p_range_val, side: 'p', color: 'cyan', is_crit: false}});
+                }}
+            }}
+
             function animate() {{
                 if (battleOver) return;
-                
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 drawHPBars();
+                
+                // 💡 【スキル反映：レオニダス】HP30%以下で5秒間無敵化
+                if ("{p_skill_id}" === "spartan_wall" && !p_immune_used && (p_hp / p_max) <= 0.3) {{
+                    p_is_immune = true;
+                    p_immune_used = true;
+                    setTimeout(() => {{ p_is_immune = false; }}, 5000); // 5秒後に解除
+                }}
                 
                 let current_distance = Math.abs(e_x - p_x);
                 if (current_distance > p_range_val && p_x < e_x - 50) {{ p_x += p_speed; }}
                 if (current_distance > e_range_val && e_x > p_x + 50) {{ e_x -= e_speed; }}
                 
-                ctx.fillStyle = '{p_color}';
+                // 描画
+                ctx.fillStyle = p_is_immune ? 'yellow' : '{p_color}';
                 ctx.beginPath(); ctx.arc(p_x, p_y, 25, 0, Math.PI*2); ctx.fill();
                 ctx.fillStyle = '#fff'; ctx.font = '14px sans-serif'; ctx.fillText('🔴', p_x-8, p_y+4);
                 
@@ -598,44 +647,67 @@ else:
                 ctx.beginPath(); ctx.arc(e_x, e_y, 25, 0, Math.PI*2); ctx.fill();
                 ctx.fillStyle = '#fff'; ctx.font = '14px sans-serif'; ctx.fillText('🔵', e_x-8, e_y+4);
                 
-                // プレイヤー発射（連射率スキル反映）
+                // プレイヤー通常発射
                 if(Math.random() < p_fire_rate && p_hp > 0) {{
-                    bullets.push({{x: p_x + 25, y: p_y + (Math.random()*20-10), vx: 7, vy: 0, max_x: p_x + p_range_val, side: 'p', color: '{p_color}'}});
+                    // 💡 【スキル反映：あかね】弾速アップ(通常7→11)
+                    let bullet_vx = ("{p_skill_id}" === "crimson_drive") ? 11 : 7;
+                    // 💡 【スキル反映：あいり】15%の確率でクリティカル弾
+                    let is_crit = ("{p_skill_id}" === "gale_strike" && Math.random() < 0.15);
+                    let b_color = is_crit ? 'gold' : '{p_color}';
+                    bullets.push({{x: p_x + 25, y: p_y + (Math.random()*20-10), vx: bullet_vx, vy: 0, max_x: p_x + p_range_val, side: 'p', color: b_color, is_crit: is_crit}});
                 }}
                 
-                // 敵発射（💡 ゼウスの「3way弾」スキル反映）
+                // 敵発射
                 if(Math.random() < e_fire_rate && e_hp > 0) {{
-                    if ("{e_skill_id}" === "thunder_bolt") {{
-                        // ゼウス専用：3方向（水平、斜め上、斜め下）に発射
-                        bullets.push({{x: e_x - 25, y: e_y, vx: -7, vy: 0, max_x: e_x - e_range_val, side: 'e', color: 'yellow'}});
-                        bullets.push({{x: e_x - 25, y: e_y, vx: -7, vy: -2, max_x: e_x - e_range_val, side: 'e', color: 'yellow'}});
-                        bullets.push({{x: e_x - 25, y: e_y, vx: -7, vy: 2, max_x: e_x - e_range_val, side: 'e', color: 'yellow'}});
+                    if ("{e_skill_id}" === "thunder_bolt") {{ // ゼウス 3way
+                        bullets.push({{x: e_x - 25, y: e_y, vx: -7, vy: 0, max_x: e_x - e_range_val, side: 'e', color: 'yellow', size: 5}});
+                        bullets.push({{x: e_x - 25, y: e_y, vx: -7, vy: -1.5, max_x: e_x - e_range_val, side: 'e', color: 'yellow', size: 5}});
+                        bullets.push({{x: e_x - 25, y: e_y, vx: -7, vy: 1.5, max_x: e_x - e_range_val, side: 'e', color: 'yellow', size: 5}});
                     }} else {{
-                        // 通常発射
-                        bullets.push({{x: e_x - 25, y: e_y + (Math.random()*20-10), vx: -7, vy: 0, max_x: e_x - e_range_val, side: 'e', color: '{e_color}'}});
+                        // 💡 【スキル反映：ナポレオン】弾のサイズを大きく(5→12)
+                        let b_size = ("{e_skill_id}" === "artillery_god") ? 12 : 5;
+                        bullets.push({{x: e_x - 25, y: e_y + (Math.random()*20-10), vx: -7, vy: 0, max_x: e_x - e_range_val, side: 'e', color: '{e_color}', size: b_size}});
                     }}
                 }}
                 
+                // 弾丸ループ
                 for(let i = bullets.length - 1; i >= 0; i--) {{
                     let b = bullets[i];
                     b.x += b.vx;
-                    b.y += b.vy; // 上下移動ベクトルを反映
+                    b.y += b.vy;
                     
+                    let size = b.size || 5;
                     ctx.fillStyle = b.color;
-                    ctx.beginPath(); ctx.arc(b.x, b.y, 5, 0, Math.PI*2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(b.x, b.y, size, 0, Math.PI*2); ctx.fill();
                     
                     if((b.vx > 0 && b.x > b.max_x) || (b.vx < 0 && b.x < b.max_x) || b.y < 0 || b.y > canvas.height) {{
                         bullets.splice(i, 1); continue;
                     }}
                     
-                    if(b.side === 'p' && Math.abs(b.x - e_x) <= 25 && Math.abs(b.y - e_y) <= 25) {{
-                        e_hp -= {p_atk} * (0.8 + Math.random()*0.4);
+                    // プレイヤーの弾が敵にヒット
+                    if(b.side === 'p' && Math.abs(b.x - e_x) <= (25 + size/2) && Math.abs(b.y - e_y) <= 25) {{
+                        // 💡 【スキル反映：マリー】30%で敵が弾を完全無効化
+                        if ("{e_skill_id}" === "royal_splendor" && Math.random() < 0.3) {{
+                            bullets.splice(i, 1); continue;
+                        }}
+                        
+                        let damage = p_atk_val * (0.8 + Math.random()*0.4);
+                        if (b.is_crit) {{ damage *= 2; }} // クリティカル2倍
+                        e_hp -= damage;
+                        
+                        // 💡 【スキル反映：アレクサンダー】ヒット時に敵を15px後方退避（ノックバック）
+                        if ("{p_skill_id}" === "phalanx_push" && e_x < 850) {{ e_x += 15; }}
+                        
                         bullets.splice(i, 1);
                         if(e_hp <= 0) {{ endBattle('WIN'); break; }}
                         continue;
                     }}
-                    if(b.side === 'e' && Math.abs(b.x - p_x) <= 25 && Math.abs(b.y - p_y) <= 25) {{
-                        p_hp -= {e_atk} * (0.8 + Math.random()*0.4);
+                    
+                    // 敵の弾がプレイヤーにヒット
+                    if(b.side === 'e' && Math.abs(b.x - p_x) <= (25 + size/2) && Math.abs(b.y - p_y) <= 25) {{
+                        // 💡 【スキル反映：レオニダス】無敵時間ならダメージ1
+                        let damage = p_is_immune ? 1 : (e_atk_val * (0.8 + Math.random()*0.4));
+                        p_hp -= damage;
                         bullets.splice(i, 1);
                         if(p_hp <= 0) {{ endBattle('LOSE'); break; }}
                         continue;
@@ -663,8 +735,15 @@ else:
         col_w, col_l = st.columns(2)
         
         with col_w:
+            # 勝利確定ボタンが押された時のブロック内
             if st.button("🏆 我軍の「勝利(WIN)」を確定して領地を占領", use_container_width=True):
-                add_log(f"⚔️【大勝利】{b_info['player_unit_name']}が{b_info['target_node']}で{b_info['enemy_unit_name']}を撃破！")
+                add_log(f"⚔️【大勝利】{b_info['player_unit_name']}が{b_info['target_node']}を撃破！")
+                
+                # 💡 アーサーのスキル判定：生存していれば兵数（count）を少し回復させる
+                if p_unit["captain"].get("skill_id") == "avalon_bless":
+                    # 例：減った分の代わりに兵士が1〜2名生存・補充されるような演出
+                    p_unit["count"] += 1
+                    add_log("🛡️ スキル発動【円卓の加護】により、傷ついた兵士が1名戦線に復帰しました。")
                 # 敵部隊の消滅と領地の占領
                 if b_info["enemy_unit_name"] in st.session_state.units:
                     st.session_state.units[b_info["enemy_unit_name"]]["count"] = 0
