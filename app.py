@@ -251,7 +251,7 @@ if not st.session_state.game_started:
         # --- ここで一斉に初期データをセッションに格納 ---
         st.session_state.nodes = generate_random_map(selected_size)
         st.session_state.turn = 1
-        st.session_state.phase = "部隊確保" # 💡 最初のフェーズはお好みで（例: 最初に部隊確保させたいならここを「部隊確保」にする）
+        st.session_state.phase = "資金確保" # 💡 最初のフェーズはお好みで（例: 最初に部隊確保させたいならここを「部隊確保」にする）
         st.session_state.logs = ["📢 大戦の火蓋が切って落とされた！"]
         st.session_state.current_candidate = random.choice(CAPTAIN_POOL)
         
