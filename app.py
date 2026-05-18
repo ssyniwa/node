@@ -68,39 +68,64 @@ if "map_generated" not in st.session_state:
     st.session_state.battle_result = None
     st.session_state.active_battle = {}
 
-    num_nodes = 40
+def generate_random_map(num_nodes):
+    """指定されたノード数で、孤立点のないネットワークマップを自動生成する"""
     nodes = {}
-    for i in range(num_nodes):
-        node_id = f"領地_{i+1}"
-        if i == 0: owner = "プレイヤー(赤)"
-        elif i == 3: owner = "AI(青)"
-        elif i == 6: owner = "AI(緑)"
-        else: owner = "中立"
+    
+    # 1. 座標の決定（画面の適度な範囲に分散させる）
+    # 10個なら広々と、40個なら細かく配置
+    for i in range(1, num_nodes + 1):
+        name = f"領地{i}"
+        # 重なりすぎないように簡易的なランダム配置（マップのサイズに合わせて調整）
+        x = random.randint(100, 800)
+        y = random.randint(100, 500)
         
-        nodes[node_id] = {
-            "owner": owner, "economy": random.randint(15, 40), "adjacent": set()
+        # 最初の3つの領地は、各国（プレイヤー、AI青、AI緑）の首都として固定オーナーにする
+        if i == 1:
+            owner = "プレイヤー(赤)"
+        elif i == 2:
+            owner = "AI(青)"
+        elif i == 3:
+            owner = "AI(緑)"
+        else:
+            owner = "中立"
+            
+        nodes[name] = {
+            "x": x,
+            "y": y,
+            "owner": owner,
+            "adjacent": []
         }
     
-    node_keys = list(nodes.keys())
-    for i in range(num_nodes - 1):
-        nodes[node_keys[i]]["adjacent"].add(node_keys[i+1])
-        nodes[node_keys[i+1]]["adjacent"].add(node_keys[i])
+    # 2. 隣接関係（エッジ）の自動接続（すべての領地がいずれかと繋がるようにする）
+    node_names = list(nodes.keys())
     
-    random.seed(42)
-    for _ in range(50):
-        n1 = random.choice(node_keys)
-        n2 = random.choice(node_keys)
-        if n1 != n2:
-            nodes[n1]["adjacent"].add(n2)
-            nodes[n2]["adjacent"].add(n1)
-            
-    for n in nodes:
-        nodes[n]["adjacent"] = list(nodes[n]["adjacent"])
+    # 線の通り道を確保するため、まずは一本道（ツリー）を作って孤立を防ぐ
+    for i in range(num_nodes - 1):
+        n1 = node_names[i]
+        n2 = node_names[i+1]
+        nodes[n1]["adjacent"].append(n2)
+        nodes[n2]["adjacent"].append(n1)
         
-    st.session_state.nodes = nodes
-    st.session_state.log = ["新世界が定義されました。部隊を結成して出撃せよ！"]
-    st.session_state.current_candidate = random.choice(CAPTAIN_POOL)
-
+    # さらにランダムに近くのノード同士を結んで、戦略的な抜け道を作る
+    for name, data in nodes.items():
+        # 現在の接続数が少ない場合、距離が近い順に2つ選んで接続
+        if len(data["adjacent"]) < 3:
+            # 他のノードを距離順にソート
+            others = [n for n in node_names if n != name and n not in data["adjacent"]]
+            if others:
+                # 1〜2個の追加経路をランダムに接続
+                for extra in random.sample(others, min(len(others), random.randint(1, 2))):
+                    nodes[name]["adjacent"].append(extra)
+                    nodes[extra]["adjacent"].append(name)
+                    
+    # 重複を排除
+    for name in nodes:
+        nodes[name]["adjacent"] = list(set(nodes[name]["adjacent"]))
+        
+    return nodes
+        
+    
 # --- 3. 共通ロジック ---
 def add_log(text):
     st.session_state.log.insert(0, f"【T{st.session_state.turn}】{text}")
@@ -208,11 +233,50 @@ def draw_map_improved():
         with open(path, 'r', encoding='utf-8') as f: html_data = f.read()
     components.html(html_data, height=460)
 
+if "game_started" not in st.session_state:
+    st.session_state.game_started = False
 
-# --- 4. メインレイアウト制御 ---
-# 💡 戦場フェーズの場合は上部マップを隠して戦闘画面に集中させる
-if st.session_state.phase != "戦場フェーズ":
-    st.title("🌐 ノード奪還戦：🗺️ 40ノード大戦国")
+# ==============================================================================
+# Aパターン：ゲーム開始前の「初期設定（タイトル）画面」
+# ==============================================================================
+if not st.session_state.game_started:
+    # 💡 整合性のポイント：この時点では st.sidebar は使わず、メイン画面中央に設定をスッキリ出す
+    st.title("⚔️ 簡易戦略シミュレーションゲーム")
+    st.markdown("### 🗺️ 初期設定")
+    
+    selected_size = st.selectbox("戦場の規模（領地数）を選択してください", [10, 20, 30, 40], index=1)
+    
+    if st.button("🚀 この規模で世界大戦を開始する", use_container_width=True):
+        # --- ここで一斉に初期データをセッションに格納 ---
+        st.session_state.nodes = generate_random_map(selected_size)
+        st.session_state.turn = 1
+        st.session_state.phase = "部隊確保" # 💡 最初のフェーズはお好みで（例: 最初に部隊確保させたいならここを「部隊確保」にする）
+        st.session_state.logs = ["📢 大戦の火蓋が切って落とされた！"]
+        st.session_state.current_candidate = random.choice(CAPTAIN_POOL)
+        
+        # ゲーム開始フラグをONにして画面を即リフレッシュ！
+        st.session_state.game_started = True
+        st.rerun()
+
+# ==============================================================================
+# Bパターン：いつものメインゲーム画面（ゲーム開始後にのみ実行される）
+# ==============================================================================
+elif st.session_state.phase != "戦場フェーズ":
+    # 💡 整合性のポイント：ゲーム開始後は、これまでのメインレイアウト制御（サイドバー等）を100%そのまま動かす！
+    
+    # --- 1. サイドバー領域（ターン数、現在のフェーズ、現在の軍資金などのメタ情報） ---
+    with st.sidebar:
+        st.header(f"⏳ ターン: {st.session_state.turn}")
+        st.subheader(f"現在フェーズ: 【{st.session_state.phase}】")
+        st.write("---")
+        # ログの表示など、これまでサイドバーに入れていたものをここに記述
+        st.markdown("### 📜 戦況ログ")
+        for log in reversed(st.session_state.logs[-10:]): # 直近10件
+            st.caption(log)
+
+    # --- 2. メインエリア領域（フェーズごとの画面制御） ---
+    st.title("🗺️ 盤面マップ・戦況報告")
+
     col1, col2 = st.columns([2, 1])
     with col1:
         st.subheader(f"ターン: {st.session_state.turn} | 現在のフェーズ: 【{st.session_state.phase}】")
@@ -226,8 +290,7 @@ if st.session_state.phase != "戦場フェーズ":
         
         st.metric("所持金 (G)", f"{p_gold} G")
         st.write(f"**未配属の隊長:** {', '.join(free_caps) if free_caps else 'なし'}")
-        st.subheader("📜 戦況履歴")
-        st.caption("\n".join(st.session_state.log[:6]))
+        
     st.divider()
 
 
