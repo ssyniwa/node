@@ -19,32 +19,33 @@ SOLDIER_TYPES = {
     "戦闘機部隊": {"cost": 90, "atk": 50, "range": 650, "color": "#0abde3"},
     "ミサイル部隊": {"cost": 150, "atk": 90, "range": 850, "color": "#ee5253"},
 }
-
+# --- プレイヤー用将軍プール ---
 CAPTAIN_POOL = [
-    {"name": "レオニダス", "atk": 15, "dfn": 10, "mot": 5, "image": "assets/reonidas.png"},
-    {"name": "ジャンヌ", "atk": 10, "dfn": 15, "mot": 8, "image": "assets/zannu.png"},
-    {"name": "ノブナガ", "atk": 18, "dfn": 8, "mot": 4, "image": "assets/nobunaga.png"},
-    {"name": "アーサー", "atk": 12, "dfn": 12, "mot": 6, "image": "assets/arther.png"},
-    {"name": "アレクサンダー", "atk": 14, "dfn": 11, "mot": 7, "image": "assets/arexander.png"},
-    {"name": "あかね", "atk": 13, "dfn": 14, "mot": 10, "image": "assets/akane.png"},
-    {"name": "しずく", "atk": 16, "dfn": 16, "mot": 12, "image": "assets/sizuku.png"},
-    {"name": "みつば", "atk": 12, "dfn": 18, "mot": 13, "image": "assets/mituba.png"},
-    {"name": "あいり", "atk": 17, "dfn": 12, "mot": 5, "image": "assets/airi.png"},
-    {"name": "カイル", "atk": 14, "dfn": 14, "mot": 9, "image": "assets/kyle.png"},
-    {"name": "ケイト", "atk": 19, "dfn": 9, "mot": 4, "image": "assets/kate.png"},
+    {"name": "レオニダス", "atk": 15, "dfn": 10, "mot": 5, "image": "assets/reonidas.png", "skill_id": "spartan_wall", "skill_name": "スパルタの不撓不屈", "skill_desc": "ピンチ時に絶対防御"},
+    {"name": "ジャンヌ", "atk": 10, "dfn": 15, "mot": 8, "image": "assets/zannu.png", "skill_id": "holy_prayer", "skill_name": "聖女の進軍祈祷", "skill_desc": "部隊移動速度1.5倍"},
+    {"name": "ノブナガ", "atk": 18, "dfn": 8, "mot": 4, "image": "assets/nobunaga.png", "skill_id": "three_line_fire", "skill_name": "三段撃ちの烈火", "skill_desc": "弾丸の発射確率が2倍"},
+    {"name": "アーサー", "atk": 12, "dfn": 12, "mot": 6, "image": "assets/arther.png", "skill_id": "avalon_bless", "skill_name": "円卓の加護", "skill_desc": "戦闘終了後にHP回復"},
+    {"name": "アレクサンダー", "atk": 14, "dfn": 11, "mot": 7, "image": "assets/arexander.png", "skill_id": "phalanx_push", "skill_name": "東方遠征の覇道", "skill_desc": "常時攻撃力プラス"},
+    {"name": "あかね", "atk": 13, "dfn": 14, "mot": 10, "image": "assets/akane.png", "skill_id": "crimson_drive", "skill_name": "紅蓮の情熱", "skill_desc": "弾丸速度アップ"},
+    {"name": "しずく", "atk": 16, "dfn": 16, "mot": 12, "image": "assets/sizuku.png", "skill_id": "clear_mind", "skill_name": "明鏡止水の戦術", "skill_desc": "敵の攻撃力ダウン"},
+    {"name": "みつば", "atk": 12, "dfn": 18, "mot": 13, "image": "assets/mituba.png", "skill_id": "clover_luck", "skill_name": "三つ葉の幸運", "skill_desc": "資金確保の収入UP"},
+    {"name": "あいり", "atk": 17, "dfn": 12, "mot": 5, "image": "assets/airi.png", "skill_id": "gale_strike", "skill_name": "疾風怒濤の連撃", "skill_desc": "確率でクリティカル"},
+    {"name": "カイル", "atk": 14, "dfn": 14, "mot": 9, "image": "assets/kyle.png", "skill_id": "iron_discipline", "skill_name": "鉄の規律", "skill_desc": "領地投資の費用割引"},
+    {"name": "ケイト", "atk": 19, "dfn": 9, "mot": 4, "image": "assets/kate.png", "skill_id": "lightning_raid", "skill_name": "電撃の強襲作戦", "skill_desc": "開幕に先制弾発射"},
 ]
+
 # --- AI専用の出撃待ち部隊プール ---
 AI_UNIT_POOL = [
-    {"captain": {"name": "AIA", "atk": 18, "dfn": 9, "image": "assets/aia.png"}, "soldier_type": "戦闘機部隊", "count": 5},
-    {"captain": {"name": "AIB", "atk": 14, "dfn": 14, "image": "assets/aib.png"}, "soldier_type": "戦車部隊", "count": 7},
-    {"captain": {"name": "ゼウス", "atk": 20, "dfn": 15, "image": "assets/zeusu.png"}, "soldier_type": "ミサイル部隊", "count": 3},
-    {"captain": {"name": "カエサル", "atk": 12, "dfn": 18, "image": "assets/kaesaru.png"}, "soldier_type": "戦車部隊", "count": 5},
-    {"captain": {"name": "ナポレオン", "atk": 16, "dfn": 10, "image": "assets/naporeon.png"}, "soldier_type": "砲撃部隊", "count": 8},
-    {"captain": {"name": "ハンニバル", "atk": 15, "dfn": 12, "image": "assets/hannibaru.png"}, "soldier_type": "戦闘機部隊", "count": 4},
-    {"captain": {"name": "チンギスハーン", "atk": 14, "dfn": 8, "image": "assets/tingishun.png"}, "soldier_type": "銃撃部隊", "count": 15},
-    {"captain": {"name": "シバ", "atk": 10, "dfn": 10, "image": "assets/siba.png"}, "soldier_type": "銃撃部隊", "count": 10},
-    {"captain": {"name": "マリー", "atk": 13, "dfn": 14, "image": "assets/mary.png"}, "soldier_type": "砲撃部隊", "count": 6},
-    {"captain": {"name": "クレオパトラ", "atk": 17, "dfn": 11, "image": "assets/kure.png"}, "soldier_type": "戦車部隊", "count": 4},
+    {"captain": {"name": "AIA", "atk": 18, "dfn": 9, "image": "assets/aia.png", "skill_id": "sky_ace", "skill_name": "第1空軍の猛威", "skill_desc": "戦闘機部隊を強化"}, "soldier_type": "戦闘機部隊", "count": 5},
+    {"captain": {"name": "AIB", "atk": 14, "dfn": 14, "image": "assets/aib.png", "skill_id": "panzer_charge", "skill_name": "鋼鉄の進撃", "skill_desc": "戦車部隊のHPアップ"}, "soldier_type": "戦車部隊", "count": 7},
+    {"captain": {"name": "ゼウス", "atk": 20, "dfn": 15, "image": "assets/zeusu.png", "skill_id": "thunder_bolt", "skill_name": "全能なる神の雷霆", "skill_desc": "ミサイルが3方向へ拡散"}, "soldier_type": "ミサイル部隊", "count": 3},
+    {"captain": {"name": "カエサル", "atk": 12, "dfn": 18, "image": "assets/kaesaru.png", "skill_id": "imperator_tactics", "skill_name": "賽は投げられた", "skill_desc": "射程距離が大幅アップ"}, "soldier_type": "戦車部隊", "count": 5},
+    {"captain": {"name": "ナポレオン", "atk": 16, "dfn": 10, "image": "assets/naporeon.png", "skill_id": "artillery_god", "skill_name": "皇帝の飽和砲撃", "skill_desc": "砲撃の範囲拡大"}, "soldier_type": "砲撃部隊", "count": 8},
+    {"captain": {"name": "ハンニバル", "atk": 15, "dfn": 12, "image": "assets/hannibaru.png", "skill_id": "alps_tactics", "skill_name": "アルプス越えの奇襲", "skill_desc": "前進した位置から開始"}, "soldier_type": "戦闘機部隊", "count": 4},
+    {"captain": {"name": "チンギスハーン", "atk": 14, "dfn": 8, "image": "assets/tingishun.png", "skill_id": "nomad_arrow", "skill_name": "蒼き狼の騎射", "skill_desc": "銃撃部隊を超強化"}, "soldier_type": "銃撃部隊", "count": 15},
+    {"captain": {"name": "シバ", "atk": 10, "dfn": 10, "image": "assets/siba.png", "skill_id": "queen_wealth", "skill_name": "シバ王国の財力", "skill_desc": "毎ターン領地経済UP"}, "soldier_type": "銃撃部隊", "count": 10},
+    {"captain": {"name": "マリー", "atk": 13, "dfn": 14, "image": "assets/mary.png", "skill_id": "royal_splendor", "skill_name": "宮廷の華麗なる威風", "skill_desc": "確率で敵の弾を無効化"}, "soldier_type": "砲撃部隊", "count": 6},
+    {"captain": {"name": "クレオパトラ", "atk": 17, "dfn": 11, "image": "assets/kure.png", "skill_id": "alluring_charm", "skill_name": "王妃の誘惑", "skill_desc": "敵の連射力を低下"}, "soldier_type": "戦車部隊", "count": 4},
 ]
 # --- 2. セッション状態の初期化 ---
 if "map_generated" not in st.session_state:
@@ -490,41 +491,49 @@ else:
         p_color = SOLDIER_TYPES[p_soldier]["color"]
         e_color = SOLDIER_TYPES[e_soldier]["color"]
 
-        # 左右のステータス表示（画像つき）
+       # 左右のステータス表示（画像＆スキル付き）
         col_p, col_vs, col_e = st.columns([2, 1, 2])
         
         with col_p:
             st.markdown(f"### 🔴 我軍: {b_info['player_unit_name']}")
-            
-            # 💡 プレイヤー将軍の画像を表示
             if "image" in p_unit["captain"]:
-                try:
-                    st.image(p_unit["captain"]["image"], width=320)
-                except:
-                    st.text("👤 [No Image]")
+                try: st.image(p_unit["captain"]["image"], width=120)
+                except: st.text("👤 [No Image]")
                     
             st.markdown(f"**隊長:** {p_unit['captain']['name']}")
+            
+            # 💡 【新設】プレイヤースキルバッジの表示
+            p_skill_id = p_unit["captain"].get("skill_id", "none")
+            p_skill_name = p_unit["captain"].get("skill_name", "なし")
+            p_skill_desc = p_unit["captain"].get("skill_desc", "")
+            st.markdown(f"⚡ **固有スキル: {p_skill_name}**")
+            st.caption(f"効果: {p_skill_desc}")
+            
             st.write(f"兵種: **{p_soldier}** (x{p_unit['count']})")
             st.write(f"基礎攻撃力: {p_atk} / 弾丸射程: **{p_range}px**")
             
         with col_vs:
-            st.markdown("<h2 style='text-align:center; color:yellow; margin-top:50px;'>VS</h2>", unsafe_allow_html=True)
+            st.markdown("<h2 style='text-align:center; color:yellow; margin-top:60px;'>VS</h2>", unsafe_allow_html=True)
             
         with col_e:
             st.markdown(f"### 🔵 敵軍: {b_info['enemy_unit_name']} ({e_unit['owner']})")
-            
-            # 💡 AI将軍の画像を表示
             if "image" in e_unit["captain"]:
-                try:
-                    st.image(e_unit["captain"]["image"], width=320)
-                except:
-                    st.text("👤 [No Image]")
+                try: st.image(e_unit["captain"]["image"], width=120)
+                except: st.text("👤 [No Image]")
                     
             st.markdown(f"**隊長:** {e_unit['captain']['name']}")
+            
+            # 💡 【新設】AIスキルバッジの表示
+            e_skill_id = e_unit["captain"].get("skill_id", "none")
+            e_skill_name = e_unit["captain"].get("skill_name", "なし")
+            e_skill_desc = e_unit["captain"].get("skill_desc", "")
+            st.markdown(f"⚡ **固有スキル: {e_skill_name}**")
+            st.caption(f"効果: {e_skill_desc}")
+            
             st.write(f"兵種: **{e_soldier}** (x{e_unit['count']})")
             st.write(f"基礎攻撃力: {e_atk} / 弾丸射程: **{e_range}px**")
 
-        # --- HTML5 Canvas + JavaScript 弾幕前進エンジン ---
+        # --- HTML5 Canvas + JavaScript 弾幕前進エンジン（スキル連動版） ---
         battle_canvas_html = f"""
         <div style="text-align: center; background: #222; padding: 15px; border-radius: 8px;">
             <canvas id="battleCanvas" width="900" height="350" style="background:#111111; border:3px solid #555; max-width:100%;"></canvas>
@@ -543,8 +552,20 @@ else:
             let p_x = 80, p_y = 175;
             let e_x = 820, e_y = 175;
             
-            const p_speed = 1.5;
-            const e_speed = 1.5;
+            // 💡 【スキル反映1】ジャンヌの移動速度1.5倍
+            let p_speed = 1.5;
+            if ("{p_skill_id}" === "holy_prayer") {{ p_speed = 2.25; }}
+            let e_speed = 1.5;
+            
+            // 💡 【スキル反映2】カエサルの敵射程アップ
+            let p_range_val = {p_range};
+            let e_range_val = {e_range};
+            if ("{e_skill_id}" === "imperator_tactics") {{ e_range_val += 150; }}
+            
+            // 💡 【スキル反映3】ノブナガの連射率（発射確率）2倍
+            let p_fire_rate = 0.08;
+            if ("{p_skill_id}" === "three_line_fire") {{ p_fire_rate = 0.16; }}
+            let e_fire_rate = 0.08;
             
             let bullets = [];
             let battleOver = false;
@@ -566,8 +587,8 @@ else:
                 drawHPBars();
                 
                 let current_distance = Math.abs(e_x - p_x);
-                if (current_distance > {p_range} && p_x < e_x - 50) {{ p_x += p_speed; }}
-                if (current_distance > {e_range} && e_x > p_x + 50) {{ e_x -= e_speed; }}
+                if (current_distance > p_range_val && p_x < e_x - 50) {{ p_x += p_speed; }}
+                if (current_distance > e_range_val && e_x > p_x + 50) {{ e_x -= e_speed; }}
                 
                 ctx.fillStyle = '{p_color}';
                 ctx.beginPath(); ctx.arc(p_x, p_y, 25, 0, Math.PI*2); ctx.fill();
@@ -577,20 +598,33 @@ else:
                 ctx.beginPath(); ctx.arc(e_x, e_y, 25, 0, Math.PI*2); ctx.fill();
                 ctx.fillStyle = '#fff'; ctx.font = '14px sans-serif'; ctx.fillText('🔵', e_x-8, e_y+4);
                 
-                if(Math.random() < 0.08 && p_hp > 0) {{
-                    bullets.push({{x: p_x + 25, y: p_y + (Math.random()*20-10), vx: 7, max_x: p_x + {p_range}, side: 'p', color: '{p_color}'}});
+                // プレイヤー発射（連射率スキル反映）
+                if(Math.random() < p_fire_rate && p_hp > 0) {{
+                    bullets.push({{x: p_x + 25, y: p_y + (Math.random()*20-10), vx: 7, vy: 0, max_x: p_x + p_range_val, side: 'p', color: '{p_color}'}});
                 }}
-                if(Math.random() < 0.08 && e_hp > 0) {{
-                    bullets.push({{x: e_x - 25, y: e_y + (Math.random()*20-10), vx: -7, max_x: e_x - {e_range}, side: 'e', color: '{e_color}'}});
+                
+                // 敵発射（💡 ゼウスの「3way弾」スキル反映）
+                if(Math.random() < e_fire_rate && e_hp > 0) {{
+                    if ("{e_skill_id}" === "thunder_bolt") {{
+                        // ゼウス専用：3方向（水平、斜め上、斜め下）に発射
+                        bullets.push({{x: e_x - 25, y: e_y, vx: -7, vy: 0, max_x: e_x - e_range_val, side: 'e', color: 'yellow'}});
+                        bullets.push({{x: e_x - 25, y: e_y, vx: -7, vy: -2, max_x: e_x - e_range_val, side: 'e', color: 'yellow'}});
+                        bullets.push({{x: e_x - 25, y: e_y, vx: -7, vy: 2, max_x: e_x - e_range_val, side: 'e', color: 'yellow'}});
+                    }} else {{
+                        // 通常発射
+                        bullets.push({{x: e_x - 25, y: e_y + (Math.random()*20-10), vx: -7, vy: 0, max_x: e_x - e_range_val, side: 'e', color: '{e_color}'}});
+                    }}
                 }}
                 
                 for(let i = bullets.length - 1; i >= 0; i--) {{
                     let b = bullets[i];
                     b.x += b.vx;
+                    b.y += b.vy; // 上下移動ベクトルを反映
+                    
                     ctx.fillStyle = b.color;
                     ctx.beginPath(); ctx.arc(b.x, b.y, 5, 0, Math.PI*2); ctx.fill();
                     
-                    if((b.vx > 0 && b.x > b.max_x) || (b.vx < 0 && b.x < b.max_x)) {{
+                    if((b.vx > 0 && b.x > b.max_x) || (b.vx < 0 && b.x < b.max_x) || b.y < 0 || b.y > canvas.height) {{
                         bullets.splice(i, 1); continue;
                     }}
                     
@@ -612,7 +646,7 @@ else:
 
             function endBattle(result) {{
                 battleOver = true;
-                document.getElementById('statusText').innerText = result === 'WIN' ? '🎉 WIN！敵部隊の撃破を確認しました！下のボタンを押してリザルトを確定してください。' : '💀 LOSE... 我軍の壊滅を確認しました。下のボタンを押して戻ってください。';
+                document.getElementById('statusText').innerText = result === 'WIN' ? '🎉 WIN！敵部隊の撃破を確認しました！' : '💀 LOSE... 我軍の壊滅を確認しました。';
             }}
 
             animate();
