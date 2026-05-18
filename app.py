@@ -266,7 +266,45 @@ else:
     # ==============================================================================
     if st.session_state.phase != "戦場フェーズ":
         # 💡 整合性のポイント：ゲーム開始後は、これまでのメインレイアウト制御（サイドバー等）を100%そのまま動かす！
+        # ==============================================================================
+        # 🏆 👑 【新機能】ゲームクリア / ゲームオーバーのリアルタイム判定
+        # ==============================================================================
+        # 全領地（ノード）のオーナーのリストを取得
+        all_owners = [node_info["owner"] for node_info in st.session_state.nodes.values()]
         
+        # プレイヤー（赤）が持っている領地の数をカウント
+        player_land_count = all_owners.count("プレイヤー(赤)")
+        total_lands = len(all_owners)
+        
+        # 条件A：プレイヤーの領地がゼロになった ➡️ 【ゲームオーバー】
+        if player_land_count == 0:
+            st.markdown("<h1 style='text-align: center; color: #ff4b4b; font-size: 60px; margin-top: 50px;'>💀 GAME OVER</h1>", unsafe_allow_html=True)
+            st.markdown("<h3 style='text-align: center; color: #aaa;'>あなたの国は敵国に蹂躙され、滅亡しました…</h3>", unsafe_allow_html=True)
+            
+            # 滅亡時の悲壮なスタッツ表示
+            st.error(f"生存ターン数: {st.session_state.turn} ターン")
+            
+            st.write("---")
+            if st.button("🔄 もう一度世界に挑戦する（タイトルへ戻る）", use_container_width=True, type="primary"):
+                # ゲーム開始フラグを折ってリロード（最初からやり直せる）
+                st.session_state.game_started = False
+                st.rerun()
+            st.stop() # 💡 これ以降の通常のマップやフェーズ画面を描画させずにここで止める！
+
+        # 条件B：プレイヤーの領地数が全領地数と等しくなった（中立も敵もゼロ） ➡️ 【ゲームクリア】
+        elif player_land_count == total_lands:
+            st.markdown("<h1 style='text-align: center; color: #ffd700; font-size: 60px; margin-top: 50px;'>👑 VICTORY CLEAR!</h1>", unsafe_allow_html=True)
+            st.markdown("<h3 style='text-align: center; color: #fff;'>おめでとうございます！あなたは全土を統一し、世界に覇を唱えました！</h3>", unsafe_allow_html=True)
+            
+            # 統一時の栄誉スタッツ表示
+            st.balloons() # 🎉 画面にお祝いの風船を飛ばすStreamlit公式演出！
+            st.success(f"👑 統一達成ターン数: {st.session_state.turn} ターン (規模: {total_lands}ノード)")
+            
+            st.write("---")
+            if st.button("🗺️ 新たな覇道へ（別の規模で遊ぶ）", use_container_width=True, type="primary"):
+                st.session_state.game_started = False
+                st.rerun()
+            st.stop() # 💡 これ以降の通常のマップやフェーズ画面を描画させずにここで止める！
         # --- 1. サイドバー領域（ターン数、現在のフェーズ、現在の軍資金などのメタ情報） ---
         with st.sidebar:
             st.header(f"⏳ ターン: {st.session_state.turn}")
