@@ -33,6 +33,8 @@ CAPTAIN_POOL = [
 ]
 # --- AI専用の出撃待ち部隊プール ---
 AI_UNIT_POOL = [
+    {"captain": {"name": "AIA", "atk": 18, "dfn": 9, "image": "assets/aia.png"}, "soldier_type": "戦闘機部隊", "count": 5},
+    {"captain": {"name": "AIB", "atk": 14, "dfn": 14, "image": "assets/aib.png"}, "soldier_type": "戦車部隊", "count": 7},
     {"captain": {"name": "ゼウス", "atk": 20, "dfn": 15, "image": "assets/zeusu.png"}, "soldier_type": "ミサイル部隊", "count": 3},
     {"captain": {"name": "カエサル", "atk": 12, "dfn": 18, "image": "assets/kaesaru.png"}, "soldier_type": "戦車部隊", "count": 5},
     {"captain": {"name": "ナポレオン", "atk": 16, "dfn": 10, "image": "assets/naporeon.png"}, "soldier_type": "砲撃部隊", "count": 8},
@@ -83,9 +85,9 @@ def generate_random_map(num_nodes):
         # 最初の3つの領地は、各国（プレイヤー、AI青、AI緑）の首都として固定オーナーにする
         if i == 1:
             owner = "プレイヤー(赤)"
-        elif i == 2:
+        elif i == 4:
             owner = "AI(青)"
-        elif i == 3:
+        elif i == 7:
             owner = "AI(緑)"
         else:
             owner = "中立"
