@@ -470,23 +470,33 @@ else:
 
         # --- 2. 進軍先ノード（領地）の選択（右カラム） ---
         with col_target:
-            # 全ての領地リストを取得
-            all_nodes = list(st.session_state.nodes.keys())
-            
-            # マップクリック等で既に選択されている場合はそのインデックスを初期値にする
-            current_node = st.session_state.get("selected_node", None)
-            default_index = all_nodes.index(current_node) if current_node in all_nodes else 0
-            
-            # 💡 【新設】進軍先の領地をユーザーが明示的に選べるドロップダウン
-            st.session_state.selected_node = st.selectbox(
-                "🗺️ 進軍先（移動先）の領地を選択",
-                options=all_nodes,
-                index=default_index,
-                key="node_selector_widget" # 重複防止のユニークキー
-            )
-            
-            # 現在マップやドロップダウンで何が選ばれているかを分かりやすく表示
-            st.markdown(f"現在選択中のターゲット: **{st.session_state.selected_node}**")
+            if not st.session_state.selected_my_unit:
+                st.write("💂‍♂️ まずは左側で部隊を選択してください。")
+            else:
+                # 1. 選択されている部隊の「現在地」を取得
+                p_uid = st.session_state.selected_my_unit
+                current_loc = st.session_state.units[p_uid]["location"]
+                
+                # 💡 【ここがポイント】その現在地とつながっている（隣接している）ノードのリストだけを抽出！
+                adjacent_nodes = st.session_state.nodes[current_loc]["adjacent"]
+                
+                if not adjacent_nodes:
+                    st.error("🛑 この領地は孤立しているため、どこにも進軍できません！")
+                    st.session_state.selected_node = None
+                else:
+                    # マップクリック等で選ばれたノードが、もし隣接リスト内にある場合はそれを初期値にする
+                    clicked_node = st.session_state.get("selected_node", None)
+                    default_index = adjacent_nodes.index(clicked_node) if clicked_node in adjacent_nodes else 0
+                    
+                    # 💡 隣接しているノードだけをドロップダウンに表示
+                    st.session_state.selected_node = st.selectbox(
+                        f"🗺️ 進軍先を選択（{current_loc} から隣接）",
+                        options=adjacent_nodes,
+                        index=default_index,
+                        key="node_selector_widget"
+                    )
+                    
+                    st.markdown(f"現在地: **{current_loc}** ➡️ 進軍先: **{st.session_state.selected_node}**")
 
         st.write("---")
 
@@ -570,7 +580,7 @@ else:
         # --- 4. ターン終了ボタン（AIに手番を渡す） ---
         if st.button("⏳ 全部隊の行動を終了してAIターンへ", use_container_width=True):
             add_log(f"💤 プレイヤーが第 {st.session_state.turn} ターンの行動を終了しました。")
-            
+            run_ai_turn()
             # プレイヤー部隊の移動フラグをリセットして次のターンへバトンタッチ
             for uid, u in st.session_state.units.items():
                 if u["owner"] == "プレイヤー(赤)":
