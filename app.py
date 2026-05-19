@@ -47,8 +47,9 @@ AI_UNIT_POOL = [
     {"captain": {"name": "マリー", "atk": 13, "dfn": 14, "image": "assets/mary.png", "skill_id": "royal_splendor", "skill_name": "宮廷の華麗なる威風", "skill_desc": "確率で敵の弾を無効化"}, "soldier_type": "砲撃部隊", "count": 6},
     {"captain": {"name": "クレオパトラ", "atk": 17, "dfn": 11, "image": "assets/kure.png", "skill_id": "alluring_charm", "skill_name": "王妃の誘惑", "skill_desc": "敵の連射力を低下"}, "soldier_type": "戦車部隊", "count": 4},
 ]
-# --- 2. セッション状態の初期化 ---
-if "map_generated" not in st.session_state:
+# 💡 【新設】ゲームデータを初期値にリセットする関数
+def reset_game():
+    
     st.session_state.map_generated = True
     st.session_state.phase = "資金確保"
     st.session_state.turn = 1
@@ -74,6 +75,8 @@ if "map_generated" not in st.session_state:
     # 戦闘結果をJavaScriptから受け取るためのトリガー変数
     st.session_state.battle_result = None
     st.session_state.active_battle = {}
+if "map_generated" not in st.session_state:
+    reset_game()
 
 def generate_random_map(num_nodes):
     """指定されたノード数で、孤立点のないネットワークマップを自動生成する"""
@@ -133,65 +136,97 @@ def generate_random_map(num_nodes):
         
     return nodes
         
-    
+
+
+# 初回起動時のみ実行
+if "gold" not in st.session_state:
+    reset_game()    
 # --- 3. 共通ロジック ---
 def add_log(text):
     st.session_state.logs.insert(0, f"【T{st.session_state.turn}】{text}")
 
 def run_ai_turn():
-    """【AI専用リスト出撃版】青国と緑国が、専用プールからランダムに部隊を編成し、前線から出撃させる"""
-    for ai_country in ["AI(青)", "AI(緑)"]:
-        # 1. 現在のこのAI国家の領地をすべてリストアップ
-        ai_nodes = [k for k, v in st.session_state.nodes.items() if v["owner"] == ai_country]
-        if not ai_nodes:
-            continue  # 領地がなければ出撃できない
+    """
+    AIの思考・行動ルーチン。
+    マップ上のAI部隊を走査し、隣接する領地への移動、および戦闘（三つ巴対応）を処理します。
+    """
+    add_log("🤖 AI軍のターンが開始されました。作戦を考案中...")
+    
+    # 1. 判定用にすべての「AI軍」の部隊をリストアップ
+    ai_units = {
+        uid: u for uid, u in st.session_state.units.items() 
+        if "AI軍" in u["owner"]
+    }
+    
+    # AI部隊が1つも存在しない場合は処理をスキップ
+    if not ai_units:
+        add_log("🏳️ マップ上に活動可能なAI部隊が存在しません。")
+        return
+
+    # 2. 各AI部隊の行動処理ループ
+    for ai_uid, ai_unit in ai_units.items():
+        ai_owner = ai_unit["owner"]         # このAI部隊の勢力名（例: "AI軍(青)"、"AI軍(緑)"）
+        current_loc = ai_unit["location"]   # 部隊の現在地
+        
+        # 現在地と線でつながっている（隣接している）領地リストを取得
+        adjacent_nodes = st.session_state.nodes[current_loc]["adjacent"]
+        
+        # 💡 行動判定：40%の確率で隣接領地への進軍を試みる（孤立していない場合のみ）
+        if adjacent_nodes and random.random() < 0.4:
+            target_node = random.choice(adjacent_nodes) # 進軍先をランダムに決定
             
-        # 2. 敵（プレイヤーや中立）と隣接している「前線ノード」を優先的に探す
-        frontline_nodes = []
-        for node in ai_nodes:
-            # 隣接に自分以外の国がいればそこは前線
-            if any(st.session_state.nodes[adj]["owner"] != ai_country for adj in st.session_state.nodes[node]["adjacent"]):
-                frontline_nodes.append(node)
-        
-        # もし前線がなければ、自分の領地すべてを出撃候補にする
-        spawn_nodes = frontline_nodes if frontline_nodes else ai_nodes
-        
-        # 出撃の起点となる領地をランダムに決定
-        start_node = random.choice(spawn_nodes)
-        
-        # 3. その起点から「攻め込める隣接ターゲット（他国 or 中立）」を決定
-        possible_targets = st.session_state.nodes[start_node]["adjacent"]
-        enemy_targets = [adj for adj in possible_targets if st.session_state.nodes[adj]["owner"] != ai_country]
-        
-        # 攻め込む先（目的地）。周囲がすべて自領なら、通常の隣接ノードへ移動
-        target_node = random.choice(enemy_targets) if enemy_targets else random.choice(possible_targets)
-        
-        # 4. 【新機軸】AI専用プールからランダムに1部隊をコピーしてインスタンス化
-        pool_template = random.choice(AI_UNIT_POOL)
-        
-        # 固有の部隊名を生成（例: AI青軍_ゼウス将軍部隊_T3）
-        ai_unit_name = f"{ai_country.replace('(','').replace(')','')}_{pool_template['captain']['name']}部隊_T{st.session_state.turn}"
-        
-        # グローバル部隊データ（st.session_state.units）に実体化させて目的地に配置！
-        st.session_state.units[ai_unit_name] = {
-            "owner": ai_country,
-            "captain": pool_template["captain"].copy(),
-            "soldier_type": pool_template["soldier_type"],
-            "count": pool_template["count"],
-            "location": target_node, # 目的地へ直接出現（出撃）
-            "moved": True            # 出現ターンは行動済み
-        }
-        
-        # 5. 目的地に誰も部隊がいない場合、領地の支配権を書き換える
-        # （もしプレイヤー部隊がいたら、プレイヤーの侵攻時に戦闘になります）
-        is_occupied = any(ui["location"] == target_node and ui["count"] > 0 for ui in st.session_state.units.values() if ui["owner"] != ai_country)
-        
-        if st.session_state.nodes[target_node]["owner"] != ai_country:
-            if not is_occupied:
-                st.session_state.nodes[target_node]["owner"] = ai_country
-                add_log(f"⚔️ 凶報: {ai_country}がプールから「{pool_template['captain']['name']}」を召喚！ {target_node}へ出撃し占領しました！")
+            # 💡 【衝突検知】移動先に「自分とは異なる勢力」がいるか厳密にチェック
+            # （プレイヤー、または自分とは違う色のAI部隊をすべて抽出）
+            enemy_units_in_node = [
+                {"id": uid, "data": u} for uid, u in st.session_state.units.items()
+                if u["location"] == target_node and u["owner"] != ai_owner
+            ]
+            
+            if len(enemy_units_in_node) > 0:
+                # ==========================================================
+                # 🔥 パターンA：防衛部隊と衝突！（戦場フェーズへ強制突入）
+                # ==========================================================
+                active_enemy = enemy_units_in_node[0]  # 【連戦仕様】先頭の1部隊をロックオン
+                enemy_uid = active_enemy["id"]
+                e_unit = active_enemy["data"]
+                
+                # AIが仕掛けた側の戦闘情報をセッションに完全固定
+                # ※ Canvas側では player_uid が左側（防衛）、enemy_uid が右側（侵攻）として描画されます
+                st.session_state.battle_info = {
+                    "player_uid": enemy_uid,           # 防衛側（元々そのマスにいた部隊）
+                    "enemy_uid": ai_uid,               # 攻撃側（攻めてきたAI部隊）
+                    "player_unit_name": f"{e_unit['captain']['name']}隊({e_unit['owner']})",
+                    "enemy_unit_name": f"{ai_unit['captain']['name']}隊({ai_owner})",
+                    "target_node": target_node
+                }
+                
+                # 攻めてきたAI部隊の位置を進軍先（戦場）へ更新
+                st.session_state.units[ai_uid]["location"] = target_node
+                
+                # フェーズを戦場へ切り替え、ログを残して即座に画面を再描画
+                st.session_state.phase = "戦場フェーズ"
+                add_log(f"💥 【急報】{target_node} にて {ai_owner} の【{ai_unit['captain']['name']}隊】が侵攻！ "
+                        f"待ち構える {e_unit['owner']} の【{e_unit['captain']['name']}隊】と激突、戦闘に入ります！")
+                st.rerun()
+                return  # 🚨 1つでも戦闘が発生したら、他のAIの移動処理は一旦中断してバトルを優先する
+                
             else:
-                add_log(f"⚠️ 警告: {ai_country}の「{pool_template['captain']['name']}」が 我軍の潜む {target_node} へ向けて出撃！一触即発です！")
+                # ==========================================================
+                # 🕊️ パターンB：無人の領地（通常移動、または無血占領）
+                # ==========================================================
+                st.session_state.units[ai_uid]["location"] = target_node
+                
+                # 移動先がまだ自分の支配下でない領地なら、支配権を上書き（占領）
+                if st.session_state.nodes[target_node]["owner"] != ai_owner:
+                    st.session_state.nodes[target_node]["owner"] = ai_owner
+                    add_log(f"🚩 【AI領土拡大】{ai_owner} が無人の {target_node} を無血占領しました。")
+                else:
+                    add_log(f"🚚 【AI移動】{ai_owner} の {ai_unit['captain']['name']}隊 が {current_loc} から {target_node} へ移動しました。")
+                
+                st.rerun()
+                return
+
+    add_log("🤖 AI軍の作戦行動が完了しました。")
 def generate_improved_node_label(node_id, info):
     owner = info["owner"]
     owner_icon = "👤" if owner == "プレイヤー(赤)" else "🤖" if owner.startswith("AI") else "🏳️"
@@ -293,9 +328,7 @@ else:
             # ゲームクリア、またはゲームオーバーの画面内にあるボタン処理を以下に差し替え
             if st.button("🔄 もう一度最初からやり直す", use_container_width=True):
                 # セッション状態をすべてクリア
-                for key in list(st.session_state.keys()):
-                    del st.session_state[key]
-                st.session_state.game_started = False
+                reset_game() # 💡 安全に初期化
                 st.rerun()
             st.stop() # 💡 これ以降の通常のマップやフェーズ画面を描画させずにここで止める！
 
@@ -310,8 +343,7 @@ else:
             
             st.write("---")
             if st.button("🗺️ 新たな覇道へ（別の規模で遊ぶ）", use_container_width=True, type="primary"):
-                st.session_state.game_started = False
-                st.rerun()
+                reset_game() # 💡 安全に初期化
             st.stop() # 💡 これ以降の通常のマップやフェーズ画面を描画させずにここで止める！
         # --- 1. サイドバー領域（ターン数、現在のフェーズ、現在の軍資金などのメタ情報） ---
         with st.sidebar:
