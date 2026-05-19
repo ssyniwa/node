@@ -962,6 +962,7 @@ else:
                 animate();
             </script>
             """
+            placeholder = st.empty()
             components.html(battle_canvas_html, height=430)
             st.stop()
             
