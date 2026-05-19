@@ -71,7 +71,7 @@ def reset_game():
     st.session_state.battle_result = None
     st.session_state.active_battle = {}
 
-reset_game()
+
 
 def generate_random_map(num_nodes):
     """指定されたノード数で、孤立点のないネットワークマップを自動生成する"""
@@ -268,7 +268,7 @@ def draw_map_improved():
         net.save_graph(path)
         with open(path, 'r', encoding='utf-8') as f: html_data = f.read()
     components.html(html_data, height=460)
-
+reset_game()
 if "game_started" not in st.session_state:
     st.session_state.game_started = False
 
