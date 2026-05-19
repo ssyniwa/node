@@ -753,21 +753,8 @@ else:
         if not (is_attacker_win or is_defender_win or is_draw):
             st.info("🎮 交戦中... 自動で決着がつくまで見守ってください。")
 
-            query_params = st.query_params
-            if "battle_ended" in query_params:
-                final_atk_hp = max(0, float(query_params.get("atk_hp", 0)))
-                final_dfn_hp = max(0, float(query_params.get("dfn_hp", 0)))
-                
-                # 兵数カウントの更新 (1未満の端数は切り上げて1名生存とする)
-                st.session_state.units[atk_uid]["count"] = int(-(-final_atk_hp // 10))
-                st.session_state.units[dfn_uid]["count"] = int(-(-final_dfn_hp // 10))
-
-                # パラメータを即座にクリアして再描画
-                st.query_params.clear()
-                st.rerun()
-
             # ==================================================================
-            # 🎨 HTML5 Canvas + JavaScript（postMessage 安全通信版）
+            # 🎨 HTML5 Canvas + JavaScript（安全な標準 postMessage 通信版）
             # ==================================================================
             battle_canvas_html = f"""
             <div style="text-align: center; background: #222; padding: 15px; border-radius: 8px;">
@@ -918,22 +905,35 @@ else:
                     battleOver = true;
                     document.getElementById('statusText').innerText = '🏳️ 合戦終了！データを同期中...';
                     
-                    // 💡 【ブラウザ互換性MAXの安全な同期ハック】
-                    // 親画面のURLオブジェクトを作ってパラメータをクリーンにセット
-                    const targetUrl = new URL(window.parent.location.href);
-                    targetUrl.searchParams.set("battle_ended", "true");
-                    targetUrl.searchParams.set("atk_hp", Math.max(0, atk_hp).toString());
-                    targetUrl.searchParams.set("dfn_hp", Math.max(0, dfn_hp).toString());
-                    
-                    // ブラウザの履歴セッションごと強制書き換えを行い、100%確実にPython側を再起動させる
-                    window.parent.window.location.href = targetUrl.href;
+                    // ⭕ 安全なpostMessage経由で、親のStreamlitコンポーネントに直接データを引き渡す
+                    const resultData = {{
+                        battle_ended: true,
+                        atk_hp: Math.max(0, atk_hp),
+                        dfn_hp: Math.max(0, dfn_hp)
+                    }};
+                    window.parent.postMessage({{type: 'streamlit:setComponentValue', value: resultData}}, '*');
                 }}
 
                 animate();
             </script>
             """
-            components.html(battle_canvas_html, height=430)
+            
+            # ⭕ components.html の戻り値を「battle_data」という変数で受け取る
+            battle_data = components.html(battle_canvas_html, height=430)
+            
+            # ⭕ JavaScript側からデータ（battle_ended）が送られてきたら、Python側のデータを更新してリランする
+            if battle_data and battle_data.get("battle_ended"):
+                final_atk_hp = max(0, float(battle_data.get("atk_hp", 0)))
+                final_dfn_hp = max(0, float(battle_data.get("dfn_hp", 0)))
+                
+                # 兵数カウントの更新 (1未満の端数は切り上げて1名生存とする)
+                st.session_state.units[atk_uid]["count"] = int(-(-final_atk_hp // 10))
+                st.session_state.units[dfn_uid]["count"] = int(-(-final_dfn_hp // 10))
+                
+                st.rerun()
+                
             st.stop()
+            
         else:
             # ==================================================================
             # 🏁 【B】決着リザルト処理（自動帰還成功後のリザルト確認画面）
