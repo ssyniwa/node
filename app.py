@@ -70,8 +70,8 @@ def reset_game():
     # 戦闘結果をJavaScriptから受け取るためのトリガー変数
     st.session_state.battle_result = None
     st.session_state.active_battle = {}
-if "gold" not in st.session_state.country_data:
-    reset_game()
+
+reset_game()
 
 def generate_random_map(num_nodes):
     """指定されたノード数で、孤立点のないネットワークマップを自動生成する"""
