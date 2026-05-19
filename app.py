@@ -465,8 +465,9 @@ else:
             invest_cost = int(base_cost * 0.8) if has_kyle else base_cost
 
             if col_inv.button(f"領地を開発する (消費: {invest_cost}G)"):
-                if st.session_state.gold >= invest_cost:
-                    st.session_state.gold -= invest_cost
+                # 正しいデータ構造（country_data）からプレイヤーのゴールドを参照・更新する
+                if st.session_state.country_data["プレイヤー(赤)"]["gold"] >= invest_cost:
+                    st.session_state.country_data["プレイヤー(赤)"]["gold"] -= invest_cost
                     # (ここに既存の経済UPロジック)
                     if has_kyle:
                         add_log("⚙️ スキル発動【鉄の規律】により、投資費用が20%割引されました。")
@@ -752,8 +753,6 @@ else:
         if not (is_attacker_win or is_defender_win or is_draw):
             st.info("🎮 交戦中... 自動で決着がつくまで見守ってください。")
 
-            # 💡 【解決策】URL書き換えを廃止し、StreamlitのクエリパラメータをJSから直接制御できるように
-            # フロント側とPython側を安全に繋ぎます
             query_params = st.query_params
             if "battle_ended" in query_params:
                 final_atk_hp = max(0, float(query_params.get("atk_hp", 0)))
@@ -934,7 +933,7 @@ else:
             </script>
             """
             components.html(battle_canvas_html, height=430)
-
+            st.stop()
         else:
             # ==================================================================
             # 🏁 【B】決着リザルト処理（自動帰還成功後のリザルト確認画面）
