@@ -469,7 +469,7 @@ else:
                 target_node = target_loc
                 enemy_units_in_node = [
                     {"id": uid, "data": u} for uid, u in st.session_state.units.items()
-                    if u["node"] == target_node and u["owner"] != "プレイヤー(赤)"
+                    if u["location"] == target_node and u["owner"] != "プレイヤー(赤)"
                 ]
                 
                 if enemy_units_in_node:
