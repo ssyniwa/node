@@ -682,307 +682,364 @@ else:
             add_log(f"📢 ターン {st.session_state.turn} が開始されました。")
             st.rerun()
 
-    # --- ⚔️ 6. 新設：戦場フェーズ（Canvasシミュレーション） ---
+    # --- ⚔️ 6. 統合：戦場フェーズ（攻守・全勢力・Canvas完全連動版） ---
     elif st.session_state.phase == "戦場フェーズ":
+        # --- 1. 戦闘情報の安全な読み込みとガード処理 ---
+        if "battle_info" not in st.session_state or not st.session_state.battle_info:
+            st.error("🚨 戦闘情報が見つかりません。マップへ戻ります。")
+            st.session_state.phase = "侵攻"
+            st.rerun()
+
         b_info = st.session_state.battle_info
-        # 💡 "player_uid" と "enemy_uid" という正しい「IDキー」を使って部隊データを取得する
-        p_unit = st.session_state.units[b_info["player_uid"]]
-        e_unit = st.session_state.units[b_info["enemy_uid"]]
-        
-        st.title("⚔️ リアルタイム交戦スクリーパ（戦場フェーズ）")
-        st.subheader(f"舞台: {b_info['target_node']}")
-        
-        # 計算用のステータス抽出
-        p_soldier = p_unit["soldier_type"]
-        e_soldier = e_unit["soldier_type"]
-        
-        # 初期HP＝兵数×10 ＋ 隊長補正
-        p_max_hp = p_unit["count"] * 10 + p_unit["captain"]["dfn"]
-        e_max_hp = e_unit["count"] * 10 + e_unit["captain"]["dfn"]
-        
-        # 攻撃力・射程のマスター適用
-        p_atk = SOLDIER_TYPES[p_soldier]["atk"] + p_unit["captain"]["atk"]
-        e_atk = SOLDIER_TYPES[e_soldier]["atk"] + e_unit["captain"]["atk"]
-        
-        p_range = SOLDIER_TYPES[p_soldier]["range"]
-        e_range = SOLDIER_TYPES[e_soldier]["range"]
-        
-        p_color = SOLDIER_TYPES[p_soldier]["color"]
-        e_color = SOLDIER_TYPES[e_soldier]["color"]
+        target_node = b_info["target_node"]
+        atk_uid = b_info["enemy_uid"]   # 攻撃側（攻めてきた部隊）のID
+        dfn_uid = b_info["player_uid"]  # 防衛側（待ち構えていた部隊）のID
 
-       # 左右のステータス表示（画像＆スキル付き）
-        col_p, col_vs, col_e = st.columns([2, 1, 2])
-        
-        with col_p:
-            st.markdown(f"### 🔴 我軍: {b_info['player_unit_name']}")
-            if "image" in p_unit["captain"]:
-                try: st.image(p_unit["captain"]["image"], width=120)
+        # 万が一部隊データが消失している場合のセーフティ
+        if atk_uid not in st.session_state.units or dfn_uid not in st.session_state.units:
+            st.warning("⚠️ 戦闘を継続できない部隊データを確認しました。戦闘を終了します。")
+            st.session_state.battle_info = None
+            st.session_state.phase = "侵攻"
+            st.rerun()
+
+        atk_unit = st.session_state.units[atk_uid]
+        dfn_unit = st.session_state.units[dfn_uid]
+
+        st.title("⚔️ リアルタイム交戦スクリーン（戦場フェーズ）")
+        st.subheader(f"舞台: {target_node}")
+
+        # --- 2. 攻撃側・防衛側の戦闘データ・マスター適用抽出 ---
+        atk_soldier = atk_unit["soldier_type"]
+        dfn_soldier = dfn_unit["soldier_type"]
+
+        # 初期HP ＝ 兵数 × 10 ＋ 隊長防御補正
+        atk_max_hp = atk_unit["count"] * 10 + atk_unit.get("captain", {}).get("dfn", 10)
+        dfn_max_hp = dfn_unit["count"] * 10 + dfn_unit.get("captain", {}).get("dfn", 10)
+
+        # 攻撃力・射程・カラーの適用
+        atk_atk = SOLDIER_TYPES[atk_soldier]["atk"] + atk_unit.get("captain", {}).get("atk", 10)
+        dfn_atk = SOLDIER_TYPES[dfn_soldier]["atk"] + dfn_unit.get("captain", {}).get("atk", 10)
+
+        atk_range = SOLDIER_TYPES[atk_soldier]["range"]
+        dfn_range = SOLDIER_TYPES[dfn_soldier]["range"]
+
+        atk_color = SOLDIER_TYPES[atk_soldier]["color"]
+        dfn_color = SOLDIER_TYPES[dfn_soldier]["color"]
+
+        # --- 3. JavaScript(Canvas)からの自動リザルトデータ受け取りロジック ---
+        query_params = st.query_params
+        if "battle_ended" in query_params:
+            # 交戦終了時、JSから送られてきた最終HPをもとに残存兵数（兵数 = HP/10 切り上げ）を算出
+            final_atk_hp = max(0, float(query_params.get("atk_hp", 0)))
+            final_dfn_hp = max(0, float(query_params.get("dfn_hp", 0)))
+            
+            # 兵数カウントの更新 (1未満の端数は切り上げて1名生存とする)
+            st.session_state.units[atk_uid]["count"] = int(-(-final_atk_hp // 10))
+            st.session_state.units[dfn_uid]["count"] = int(-(-final_dfn_hp // 10))
+
+            # クエリをクリアして画面をリフレッシュ
+            st.query_params.clear()
+            st.rerun()
+
+        # --- 4. リアルタイム勝敗判定 ---
+        is_attacker_win = (dfn_unit["count"] <= 0 and atk_unit["count"] > 0)
+        is_defender_win = (atk_unit["count"] <= 0 and dfn_unit["count"] > 0)
+        is_draw = (atk_unit["count"] <= 0 and dfn_unit["count"] <= 0)
+
+        # 左右のステータス表示（画像＆スキルバッジ付き）
+        col_dfn_ui, col_vs, col_atk_ui = st.columns([2, 1, 2])
+
+        with col_dfn_ui:
+            st.markdown(f"### 🛡️ 防衛側: {b_info['player_unit_name']}")
+            if "image" in dfn_unit["captain"]:
+                try: st.image(dfn_unit["captain"]["image"], width=120)
                 except: st.text("👤 [No Image]")
-                    
-            st.markdown(f"**隊長:** {p_unit['captain']['name']}")
+            st.markdown(f"**隊長:** {dfn_unit['captain']['name']} (所属: {dfn_unit['owner']})")
             
-            # 💡 【新設】プレイヤースキルバッジの表示
-            p_skill_id = p_unit["captain"].get("skill_id", "none")
-            p_skill_name = p_unit["captain"].get("skill_name", "なし")
-            p_skill_desc = p_unit["captain"].get("skill_desc", "")
-            st.markdown(f"⚡ **固有スキル: {p_skill_name}**")
-            st.caption(f"効果: {p_skill_desc}")
-            
-            st.write(f"兵種: **{p_soldier}** (x{p_unit['count']})")
-            st.write(f"基礎攻撃力: {p_atk} / 弾丸射程: **{p_range}px**")
-            
+            dfn_skill_id = dfn_unit["captain"].get("skill_id", "none")
+            st.markdown(f"⚡ **固有スキル: {dfn_unit['captain'].get('skill_name', 'なし')}**")
+            st.caption(f"効果: {dfn_unit['captain'].get('skill_desc', '')}")
+            st.write(f"兵種: **{dfn_soldier}** (x{dfn_unit['count']})")
+            st.write(f"総攻撃力: {dfn_atk} / 弾丸射程: **{dfn_range}px**")
+
         with col_vs:
-            st.markdown("<h2 style='text-align:center; color:yellow; margin-top:60px;'>VS</h2>", unsafe_allow_html=True)
-            
-        with col_e:
-            st.markdown(f"### 🔵 敵軍: {b_info['enemy_unit_name']} ({e_unit['owner']})")
-            if "image" in e_unit["captain"]:
-                try: st.image(e_unit["captain"]["image"], width=120)
+            st.markdown("<h2 style='text-align:center; color:#ff4b4b; margin-top:60px;'>VS</h2>", unsafe_allow_html=True)
+
+        with col_atk_ui:
+            st.markdown(f"### 🎯 攻撃側: {b_info['enemy_unit_name']}")
+            if "image" in atk_unit["captain"]:
+                try: st.image(atk_unit["captain"]["image"], width=120)
                 except: st.text("👤 [No Image]")
+            st.markdown(f"**隊長:** {atk_unit['captain']['name']} (所属: {atk_unit['owner']})")
+            
+            atk_skill_id = atk_unit["captain"].get("skill_id", "none")
+            st.markdown(f"⚡ **固有スキル: {atk_unit['captain'].get('skill_name', 'なし')}**")
+            st.caption(f"効果: {atk_unit['captain'].get('skill_desc', '')}")
+            st.write(f"兵種: **{atk_soldier}** (x{atk_unit['count']})")
+            st.write(f"総攻撃力: {atk_atk} / 弾丸射程: **{atk_range}px**")
+
+        # --- 5. メインコンテンツ：戦闘中 Canvas 描画 or 決着リザルト ---
+        if not (is_attacker_win or is_defender_win or is_draw):
+            st.info("🎮 交戦中... Canvas内の戦況を見守ってください。終了すると自動でマップに戻ります。")
+
+            # ==================================================================
+            # 🎨 HTML5 Canvas + JavaScript 弾幕前進エンジン（完全攻守・スキル連動版）
+            # ==================================================================
+            battle_canvas_html = f"""
+            <div style="text-align: center; background: #222; padding: 15px; border-radius: 8px;">
+                <canvas id="battleCanvas" width="900" height="350" style="background:#111111; border:3px solid #555; max-width:100%;"></canvas>
+                <h3 id="statusText" style="color: #fff; font-family: sans-serif; margin-top: 10px;">激戦中... 🔥</h3>
+            </div>
+            
+            <script>
+                const canvas = document.getElementById('battleCanvas');
+                const ctx = canvas.getContext('2d');
+
+                // 💡 データを「攻撃側(atk)」と「防衛側(dfn)」に完全抽象化
+                let dfn_hp = {dfn_max_hp};
+                let atk_hp = {atk_max_hp};
+
+                const dfn_max = {dfn_max_hp};
+                let atk_max = {atk_max_hp};
+
+                // 【スキル反映：AIB】攻撃側がAIBなら最大HP+50
+                if ("{atk_skill_id}" === "panzer_charge") {{ atk_max += 50; atk_hp += 50; }}
+                // 【スキル反映：AIB】防衛側がAIBなら最大HP+50
+                if ("{dfn_skill_id}" === "panzer_charge") {{ dfn_hp += 50; }}
+
+                // 初期配置（防衛側は左:80、攻撃側は右:820から侵攻）
+                let dfn_x = 80, dfn_y = 175;
+                let atk_x = 820, atk_y = 175;
+
+                // 【スキル反映：ハンニバル】攻撃側・防衛側それぞれの奇袭前進
+                if ("{atk_skill_id}" === "alps_tactics") {{ atk_x = 700; }}
+                if ("{dfn_skill_id}" === "alps_tactics") {{ dfn_x = 200; }}
+
+                // 【スキル反映：ジャンヌ】移動速度1.5倍化
+                let dfn_speed = ("{dfn_skill_id}" === "holy_prayer") ? 2.25 : 1.5;
+                let atk_speed = ("{atk_skill_id}" === "holy_prayer") ? 2.25 : 1.5;
+
+                // 【スキル反映：カエサル】射程距離アップ
+                let dfn_range_val = "{dfn_skill_id}" === "imperator_tactics" ? {dfn_range} + 150 : {dfn_range};
+                let atk_range_val = "{atk_skill_id}" === "imperator_tactics" ? {atk_range} + 150 : {atk_range};
+
+                // 【スキル反映：ノブナガ / クレオパトラ】連射レート調整
+                let dfn_fire_rate = ("{dfn_skill_id}" === "three_line_fire") ? 0.16 : 0.08;
+                if ("{atk_skill_id}" === "alluring_charm") {{ dfn_fire_rate *= 0.5; }}
+
+                let atk_fire_rate = ("{atk_skill_id}" === "three_line_fire") ? 0.16 : 0.08;
+                if ("{dfn_skill_id}" === "alluring_charm") {{ atk_fire_rate *= 0.5; }}
+
+                // 【スキル反映：しずく / アレクサンダー / AIA】攻撃力調整
+                let dfn_atk_val = {dfn_atk};
+                let atk_atk_val = {atk_atk};
+                if ("{dfn_skill_id}" === "clear_mind") {{ atk_atk_val *= 0.7; }}
+                if ("{atk_skill_id}" === "clear_mind") {{ dfn_atk_val *= 0.7; }}
+                if ("{dfn_skill_id}" === "phalanx_push") {{ dfn_atk_val += 2; }}
+                if ("{atk_skill_id}" === "phalanx_push") {{ atk_atk_val += 2; }}
+                if ("{dfn_skill_id}" === "sky_ace" && "{dfn_soldier}" === "戦闘機部隊") {{ dfn_atk_val *= 1.3; }}
+                if ("{atk_skill_id}" === "sky_ace" && "{atk_soldier}" === "戦闘機部隊") {{ atk_atk_val *= 1.3; }}
+
+                // レオニダス絶対防御フラグ
+                let dfn_is_immune = false, dfn_immune_used = false;
+                let atk_is_immune = false, atk_immune_used = false;
+
+                let bullets = [];
+                let battleOver = false;
+
+                function drawHPBars() {{
+                    // 左側：防衛軍HPバー
+                    ctx.fillStyle = '#555'; ctx.fillRect(40, 20, 250, 15);
+                    ctx.fillStyle = '#00f060'; ctx.fillRect(40, 20, Math.max(0, (dfn_hp / dfn_max)) * 250, 15);
+                    ctx.fillStyle = '#fff'; ctx.font = '12px sans-serif'; ctx.fillText('防衛軍HP: ' + Math.max(0, Math.floor(dfn_hp)), 45, 32);
+                    if(dfn_is_immune) {{ ctx.fillStyle = 'yellow'; ctx.fillText('🛡️ 絶対防御！', 45, 50); }}
                     
-            st.markdown(f"**隊長:** {e_unit['captain']['name']}")
-            
-            # 💡 【新設】AIスキルバッジの表示
-            e_skill_id = e_unit["captain"].get("skill_id", "none")
-            e_skill_name = e_unit["captain"].get("skill_name", "なし")
-            e_skill_desc = e_unit["captain"].get("skill_desc", "")
-            st.markdown(f"⚡ **固有スキル: {e_skill_name}**")
-            st.caption(f"効果: {e_skill_desc}")
-            
-            st.write(f"兵種: **{e_soldier}** (x{e_unit['count']})")
-            st.write(f"基礎攻撃力: {e_atk} / 弾丸射程: **{e_range}px**")
-
-        # --- HTML5 Canvas + JavaScript 弾幕前進エンジン（スキル連動版） ---
-        battle_canvas_html = f"""
-        <div style="text-align: center; background: #222; padding: 15px; border-radius: 8px;">
-            <canvas id="battleCanvas" width="900" height="350" style="background:#111111; border:3px solid #555; max-width:100%;"></canvas>
-            <h3 id="statusText" style="color: #fff; font-family: sans-serif; margin-top: 10px;">戦闘中... 🔥</h3>
-        </div>
-        
-        <script>
-            const canvas = document.getElementById('battleCanvas');
-            const ctx = canvas.getContext('2d');
-
-            let p_hp = {p_max_hp};
-            let e_hp = {e_max_hp};
-
-            // 💡 【スキル反映：AIB】敵がAIBなら最大HP+50
-            const p_max = {p_max_hp};
-            let e_max = {e_max_hp};
-            if ("{e_skill_id}" === "panzer_charge") {{ e_max += 50; e_hp += 50; }}
-
-            let p_x = 80, p_y = 175;
-            let e_x = 820, e_y = 175;
-
-            // 💡 【スキル反映：ハンニバル】敵がハンニバルなら少し前進した位置から開始
-            if ("{e_skill_id}" === "alps_tactics") {{ e_x = 700; }}
-
-            // 💡 【スキル反映：ジャンヌ】
-            let p_speed = 1.5;
-            if ("{p_skill_id}" === "holy_prayer") {{ p_speed = 2.25; }}
-            let e_speed = 1.5;
-
-            // 💡 【スキル反映：カエサル】
-            let p_range_val = {p_range};
-            let e_range_val = {e_range};
-            if ("{e_skill_id}" === "imperator_tactics") {{ e_range_val += 150; }}
-
-            // 💡 【スキル反映：ノブナガ / クレオパトラ】
-            let p_fire_rate = 0.08;
-            if ("{p_skill_id}" === "three_line_fire") {{ p_fire_rate = 0.16; }}
-            if ("{e_skill_id}" === "alluring_charm") {{ p_fire_rate = 0.04; }} // プレイヤーの連射半減
-            let e_fire_rate = 0.08;
-
-            // 💡 【スキル反映：しずく】敵の基礎攻撃力を30%ダウン
-            let p_atk_val = {p_atk};
-            let e_atk_val = {e_atk};
-            if ("{p_skill_id}" === "clear_mind") {{ e_atk_val *= 0.7; }}
-            // 💡 【スキル反映：アレクサンダー / AIA】
-            if ("{p_skill_id}" === "phalanx_push") {{ p_atk_val += 2; }}
-            if ("{e_skill_id}" === "sky_ace" && "{e_soldier}" === "戦闘機部隊") {{ e_atk_val *= 1.3; }}
-
-            // 無敵フラグ（レオニダス用）
-            let p_is_immune = false;
-            let p_immune_used = false;
-
-            let bullets = [];
-            let battleOver = false;
-
-            function drawHPBars() {{
-                ctx.fillStyle = '#555'; ctx.fillRect(40, 20, 250, 15);
-                ctx.fillStyle = '#ff4b4b'; ctx.fillRect(40, 20, (p_hp / p_max) * 250, 15);
-                ctx.fillStyle = '#fff'; ctx.font = '12px sans-serif'; ctx.fillText('プレイヤーHP: ' + Math.max(0, Math.floor(p_hp)), 45, 32);
-                if(p_is_immune) {{ ctx.fillStyle = 'yellow'; ctx.fillText('🛡️ 絶対防御展開中！', 45, 50); }}
-                
-                ctx.fillStyle = '#555'; ctx.fillRect(610, 20, 250, 15);
-                ctx.fillStyle = '#1c83e1'; ctx.fillRect(610, 20, (e_hp / e_max) * 250, 15);
-                ctx.fillStyle = '#fff'; ctx.fillText('敵軍HP: ' + Math.max(0, Math.floor(e_hp)), 615, 32);
-            }}
-
-            // 💡 【スキル反映：ケイト】開幕先制5連撃
-            if ("{p_skill_id}" === "lightning_raid") {{
-                for(let k=0; k<5; k++) {{
-                    bullets.push({{x: p_x + 50 + (k*20), y: p_y + (k*10-20), vx: 8, vy: 0, max_x: p_x + p_range_val, side: 'p', color: 'cyan', is_crit: false}});
+                    // 右側：攻撃軍HPバー
+                    ctx.fillStyle = '#555'; ctx.fillRect(610, 20, 250, 15);
+                    ctx.fillStyle = '#ff4b4b'; ctx.fillRect(610, 20, Math.max(0, (atk_hp / atk_max)) * 250, 15);
+                    ctx.fillStyle = '#fff'; ctx.fillText('攻撃軍HP: ' + Math.max(0, Math.floor(atk_hp)), 615, 32);
+                    if(atk_is_immune) {{ ctx.fillStyle = 'yellow'; ctx.fillText('🛡️ 絶対防御！', 615, 50); }}
                 }}
-            }}
 
-            function animate() {{
-                if (battleOver) return;
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                drawHPBars();
-                
-                // 💡 【スキル反映：レオニダス】HP30%以下で5秒間無敵化
-                if ("{p_skill_id}" === "spartan_wall" && !p_immune_used && (p_hp / p_max) <= 0.3) {{
-                    p_is_immune = true;
-                    p_immune_used = true;
-                    setTimeout(() => {{ p_is_immune = false; }}, 5000); // 5秒後に解除
+                // 【スキル反映：ケイト】開幕先制5連撃
+                if ("{dfn_skill_id}" === "lightning_raid") {{
+                    for(let k=0; k<5; k++) bullets.push({{x: dfn_x + 30 + (k*20), y: dfn_y + (k*10-20), vx: 8, vy: 0, max_x: dfn_x + dfn_range_val, side: 'dfn', color: 'cyan'}});
                 }}
-                
-                let current_distance = Math.abs(e_x - p_x);
-                if (current_distance > p_range_val && p_x < e_x - 50) {{ p_x += p_speed; }}
-                if (current_distance > e_range_val && e_x > p_x + 50) {{ e_x -= e_speed; }}
-                
-                // 描画
-                ctx.fillStyle = p_is_immune ? 'yellow' : '{p_color}';
-                ctx.beginPath(); ctx.arc(p_x, p_y, 25, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#fff'; ctx.font = '14px sans-serif'; ctx.fillText('🔴', p_x-8, p_y+4);
-                
-                ctx.fillStyle = '{e_color}';
-                ctx.beginPath(); ctx.arc(e_x, e_y, 25, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#fff'; ctx.font = '14px sans-serif'; ctx.fillText('🔵', e_x-8, e_y+4);
-                
-                // プレイヤー通常発射
-                if(Math.random() < p_fire_rate && p_hp > 0) {{
-                    // 💡 【スキル反映：あかね】弾速アップ(通常7→11)
-                    let bullet_vx = ("{p_skill_id}" === "crimson_drive") ? 11 : 7;
-                    // 💡 【スキル反映：あいり】15%の確率でクリティカル弾
-                    let is_crit = ("{p_skill_id}" === "gale_strike" && Math.random() < 0.15);
-                    let b_color = is_crit ? 'gold' : '{p_color}';
-                    bullets.push({{x: p_x + 25, y: p_y + (Math.random()*20-10), vx: bullet_vx, vy: 0, max_x: p_x + p_range_val, side: 'p', color: b_color, is_crit: is_crit}});
+                if ("{atk_skill_id}" === "lightning_raid") {{
+                    for(let k=0; k<5; k++) bullets.push({{x: atk_x - 30 - (k*20), y: atk_y + (k*10-20), vx: -8, vy: 0, max_x: atk_x - atk_range_val, side: 'atk', color: 'cyan'}});
                 }}
-                
-                // 敵発射
-                if(Math.random() < e_fire_rate && e_hp > 0) {{
-                    if ("{e_skill_id}" === "thunder_bolt") {{ // ゼウス 3way
-                        bullets.push({{x: e_x - 25, y: e_y, vx: -7, vy: 0, max_x: e_x - e_range_val, side: 'e', color: 'yellow', size: 5}});
-                        bullets.push({{x: e_x - 25, y: e_y, vx: -7, vy: -1.5, max_x: e_x - e_range_val, side: 'e', color: 'yellow', size: 5}});
-                        bullets.push({{x: e_x - 25, y: e_y, vx: -7, vy: 1.5, max_x: e_x - e_range_val, side: 'e', color: 'yellow', size: 5}});
-                    }} else {{
-                        // 💡 【スキル反映：ナポレオン】弾のサイズを大きく(5→12)
-                        let b_size = ("{e_skill_id}" === "artillery_god") ? 12 : 5;
-                        bullets.push({{x: e_x - 25, y: e_y + (Math.random()*20-10), vx: -7, vy: 0, max_x: e_x - e_range_val, side: 'e', color: '{e_color}', size: b_size}});
+
+                function animate() {{
+                    if (battleOver) return;
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    drawHPBars();
+                    
+                    // 【スキル反映：レオニダス】HP30%以下で5秒間無敵
+                    if ("{dfn_skill_id}" === "spartan_wall" && !dfn_immune_used && (dfn_hp / dfn_max) <= 0.3) {{
+                        dfn_is_immune = true; dfn_immune_used = true; setTimeout(() => {{ dfn_is_immune = false; }}, 5000);
                     }}
-                }}
-                
-                // 弾丸ループ
-                for(let i = bullets.length - 1; i >= 0; i--) {{
-                    let b = bullets[i];
-                    b.x += b.vx;
-                    b.y += b.vy;
-                    
-                    let size = b.size || 5;
-                    ctx.fillStyle = b.color;
-                    ctx.beginPath(); ctx.arc(b.x, b.y, size, 0, Math.PI*2); ctx.fill();
-                    
-                    if((b.vx > 0 && b.x > b.max_x) || (b.vx < 0 && b.x < b.max_x) || b.y < 0 || b.y > canvas.height) {{
-                        bullets.splice(i, 1); continue;
+                    if ("{atk_skill_id}" === "spartan_wall" && !atk_immune_used && (atk_hp / atk_max) <= 0.3) {{
+                        atk_is_immune = true; atk_immune_used = true; setTimeout(() => {{ atk_is_immune = false; }}, 5000);
                     }}
                     
-                    // プレイヤーの弾が敵にヒット
-                    if(b.side === 'p' && Math.abs(b.x - e_x) <= (25 + size/2) && Math.abs(b.y - e_y) <= 25) {{
-                        // 💡 【スキル反映：マリー】30%で敵が弾を完全無効化
-                        if ("{e_skill_id}" === "royal_splendor" && Math.random() < 0.3) {{
+                    // 前進・間合い管理
+                    let current_distance = Math.abs(atk_x - dfn_x);
+                    if (current_distance > dfn_range_val && dfn_x < atk_x - 50) {{ dfn_x += dfn_speed; }}
+                    if (current_distance > atk_range_val && atk_x > dfn_x + 50) {{ atk_x -= atk_speed; }}
+                    
+                    // キャラクター描画
+                    ctx.fillStyle = dfn_is_immune ? 'yellow' : '{dfn_color}';
+                    ctx.beginPath(); ctx.arc(dfn_x, dfn_y, 25, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#fff'; ctx.font = '14px sans-serif'; ctx.fillText('🛡️', dfn_x-8, dfn_y+5);
+                    
+                    ctx.fillStyle = atk_is_immune ? 'yellow' : '{atk_color}';
+                    ctx.beginPath(); ctx.arc(atk_x, atk_y, 25, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#fff'; ctx.fillText('⚔️', atk_x-8, atk_y+5);
+                    
+                    // 防衛側射撃
+                    if(Math.random() < dfn_fire_rate && dfn_hp > 0) {{
+                        let b_vx = ("{dfn_skill_id}" === "crimson_drive") ? 11 : 7;
+                        let is_crit = ("{dfn_skill_id}" === "gale_strike" && Math.random() < 0.15);
+                        bullets.push({{x: dfn_x + 25, y: dfn_y + (Math.random()*20-10), vx: b_vx, vy: 0, max_x: dfn_x + dfn_range_val, side: 'dfn', color: is_crit ? 'gold' : '{dfn_color}', is_crit: is_crit}});
+                    }}
+                    
+                    // 攻撃側射撃
+                    if(Math.random() < atk_fire_rate && atk_hp > 0) {{
+                        let b_vx = ("{atk_skill_id}" === "crimson_drive") ? -11 : -7;
+                        let is_crit = ("{atk_skill_id}" === "gale_strike" && Math.random() < 0.15);
+                        
+                        if ("{atk_skill_id}" === "thunder_bolt") {{ // ゼウス 3way
+                            bullets.push({{x: atk_x - 25, y: atk_y, vx: b_vx, vy: 0, max_x: atk_x - atk_range_val, side: 'atk', color: 'yellow', size: 5}});
+                            bullets.push({{x: atk_x - 25, y: atk_y, vx: b_vx, vy: -1.5, max_x: atk_x - atk_range_val, side: 'atk', color: 'yellow', size: 5}});
+                            bullets.push({{x: atk_x - 25, y: atk_y, vx: b_vx, vy: 1.5, max_x: atk_x - atk_range_val, side: 'atk', color: 'yellow', size: 5}});
+                        }} else {{
+                            let b_size = ("{atk_skill_id}" === "artillery_god") ? 12 : 5;
+                            bullets.push({{x: atk_x - 25, y: atk_y + (Math.random()*20-10), vx: b_vx, vy: 0, max_x: atk_x - atk_range_val, side: 'atk', color: is_crit ? 'gold' : '{atk_color}', size: b_size, is_crit: is_crit}});
+                        }}
+                    }}
+                    
+                    // 弾丸処理ループ
+                    for(let i = bullets.length - 1; i >= 0; i--) {{
+                        let b = bullets[i];
+                        b.x += b.vx; b.y += b.vy;
+                        let size = b.size || 5;
+                        
+                        ctx.fillStyle = b.color;
+                        ctx.beginPath(); ctx.arc(b.x, b.y, size, 0, Math.PI*2); ctx.fill();
+                        
+                        if((b.vx > 0 && b.x > b.max_x) || (b.vx < 0 && b.x < b.max_x)) {{
                             bullets.splice(i, 1); continue;
                         }}
                         
-                        let damage = p_atk_val * (0.8 + Math.random()*0.4);
-                        if (b.is_crit) {{ damage *= 2; }} // クリティカル2倍
-                        e_hp -= damage;
+                        // 防衛側の弾が攻撃側にヒット
+                        if(b.side === 'dfn' && Math.abs(b.x - atk_x) <= (25 + size/2) && Math.abs(b.y - atk_y) <= 25) {{
+                            if ("{atk_skill_id}" === "royal_splendor" && Math.random() < 0.3) {{ bullets.splice(i, 1); continue; }}
+                            let damage = atk_is_immune ? 1 : dfn_atk_val * (0.8 + Math.random()*0.4);
+                            if (b.is_crit) damage *= 2;
+                            atk_hp -= damage;
+                            if ("{dfn_skill_id}" === "phalanx_push" && atk_x < 850) atk_x += 15; // ノックバック
+                            bullets.splice(i, 1);
+                            if(atk_hp <= 0) {{ endBattle(); break; }}
+                            continue;
+                        }}
                         
-                        // 💡 【スキル反映：アレクサンダー】ヒット時に敵を15px後方退避（ノックバック）
-                        if ("{p_skill_id}" === "phalanx_push" && e_x < 850) {{ e_x += 15; }}
-                        
-                        bullets.splice(i, 1);
-                        if(e_hp <= 0) {{ endBattle('WIN'); break; }}
-                        continue;
+                        // 攻撃側の弾が防衛側にヒット
+                        if(b.side === 'atk' && Math.abs(b.x - dfn_x) <= (25 + size/2) && Math.abs(b.y - dfn_y) <= 25) {{
+                            if ("{dfn_skill_id}" === "royal_splendor" && Math.random() < 0.3) {{ bullets.splice(i, 1); continue; }}
+                            let damage = dfn_is_immune ? 1 : atk_atk_val * (0.8 + Math.random()*0.4);
+                            if (b.is_crit) damage *= 2;
+                            dfn_hp -= damage;
+                            if ("{atk_skill_id}" === "phalanx_push" && dfn_x > 50) dfn_x -= 15; // ノックバック
+                            bullets.splice(i, 1);
+                            if(dfn_hp <= 0) {{ endBattle(); break; }}
+                            continue;
+                        }}
                     }}
-                    
-                    // 敵の弾がプレイヤーにヒット
-                    if(b.side === 'e' && Math.abs(b.x - p_x) <= (25 + size/2) && Math.abs(b.y - p_y) <= 25) {{
-                        // 💡 【スキル反映：レオニダス】無敵時間ならダメージ1
-                        let damage = p_is_immune ? 1 : (e_atk_val * (0.8 + Math.random()*0.4));
-                        p_hp -= damage;
-                        bullets.splice(i, 1);
-                        if(p_hp <= 0) {{ endBattle('LOSE'); break; }}
-                        continue;
-                    }}
+                    requestAnimationFrame(animate);
                 }}
-                requestAnimationFrame(animate);
-            }}
 
-            function endBattle(result) {{
-                battleOver = true;
-                document.getElementById('statusText').innerText = result === 'WIN' ? '🎉 WIN！敵部隊の撃破を確認しました！' : '💀 LOSE... 我軍の壊滅を確認しました。';
-            }}
+                function endBattle() {{
+                    battleOver = true;
+                    document.getElementById('statusText').innerText = '🏳️ 合戦の決着を確認しました。データを送信中...';
+                    
+                    // 💡 結果を親ウィンドウ(Streamlit)のURLパラメータ経由で自動送信
+                    setTimeout(() => {{
+                        const currentUrl = new URL(window.parent.location.href);
+                        currentUrl.searchParams.set("battle_ended", "true");
+                        currentUrl.searchParams.set("atk_hp", atk_hp);
+                        currentUrl.searchParams.set("dfn_hp", dfn_hp);
+                        window.parent.location.href = currentUrl.toString();
+                    }}, 1200);
+                }}
 
-            animate();
-        </script>
-        """
-        
-        # Canvasを画面にレンダリング
-        components.html(battle_canvas_html, height=430)
-        
-        # --- Streamlit側で確実にキャッチする結果確定UI ---
-        st.markdown("### 📝 戦闘結果の確定")
-        st.info("上のミニ画面で勝敗（WIN / LOSE）が決まったら、該当するボタンを押して戦果を記録してください。")
-        
-        col_w, col_l = st.columns(2)
-        
-        with col_w:
-           if st.button("🏆 我軍の勝利(WIN)を確定させる", use_container_width=True):
-                b_info = st.session_state.battle_info
-                target_node = b_info["target_node"]
-                enemy_uid = b_info["enemy_uid"]
-                player_uid = b_info["player_uid"]
+                animate();
+            </script>
+            """
+            components.html(battle_canvas_html, height=430)
+
+        else:
+            # ==================================================================
+            # 🏁 【B】決着リザルト処理（攻守・全勢力対応抽象化版）
+            # ==================================================================
+            st.markdown("## 🏁 合戦終結・戦果報告")
+            
+            if is_attacker_win:
+                winner_owner = atk_unit["owner"]
+                winner_name = b_info["enemy_unit_name"]
+                loser_name = b_info["player_unit_name"]
                 
-                # 1. 勝利したプレイヤー部隊の生存処理（アーサースキルなど）
-                p_unit = st.session_state.units[player_uid]
-                if p_unit["captain"].get("skill_id") == "avalon_bless":
-                    p_unit["count"] += 1
-                    add_log("🛡️ スキル【円卓の加護】で兵士が1名復帰。")
+                st.success(f"🏆 **【侵略成功】攻撃側：{winner_name}** が勝利を収めました！")
+                st.error(f"💀 **【全滅】防衛側：{loser_name}** は防衛線の維持に失敗し、壊滅しました。")
+                
+                if st.button("戦果を確認してマップへ戻る", use_container_width=True, type="primary"):
+                    # ① 敗北した防衛部隊を世界から完全削除
+                    if dfn_uid in st.session_state.units:
+                        del st.session_state.units[dfn_uid]
                     
-                # 2. 💡 倒された敵の1部隊「だけ」をプールから削除
-                if enemy_uid in st.session_state.units:
-                    del st.session_state.units[enemy_uid]
-                
-                # 3. 💡 まだ同じマスに別の敵部隊が残っているかチェック
-                remaining_enemies = [
-                    u for u in st.session_state.units.values()
-                    if u["location"] == target_node and u["owner"] != "プレイヤー(赤)"
-                ]
-                
-                if len(remaining_enemies) > 0:
-                    # まだ残党がいる場合：マスは占領せず、ログで警告
-                    add_log(f"💥 撃破完了！しかし、{target_node} にはまだ敵の増援が {len(remaining_enemies)} 部隊残っています！")
-                else:
-                    # 敵が全滅した場合：ここで初めて領地をプレイヤーのものにする
-                    st.session_state.nodes[target_node]["owner"] = "プレイヤー(赤)"
-                    add_log(f"🚩 {target_node} の敵を完全に一掃し、領地を占領しました！")
-                
-                # 状態をリセットして侵攻フェーズへ
-                st.session_state.phase = "侵攻"
-                st.rerun()
-                
-        with col_l:
-            if st.button("💀 我軍の敗北(LOSE)を受け入れる", use_container_width=True):
-                b_info = st.session_state.battle_info
-                player_uid = b_info["player_uid"]
-                
-                # プレイヤー部隊の消滅
-                if player_uid in st.session_state.units:
-                    add_log(f"😭 {st.session_state.units[player_uid]['captain']['name']}隊が全滅しました...")
-                    del st.session_state.units[player_uid]
+                    # ② 領地の支配権を「勝った攻撃側の勢力」に完璧に塗り替える
+                    st.session_state.nodes[target_node]["owner"] = winner_owner
+                    add_log(f"💥 【戦果】{winner_name} が戦闘に勝利！ 【{target_node}】を完全に占領し、支配権を奪いました。")
                     
-                # 状態をリセットして侵攻フェーズへ
-                st.session_state.phase = "侵攻"
-                st.rerun()
+                    # ③ セッションをクリーンアップして侵攻へ戻る
+                    st.session_state.battle_info = None
+                    st.session_state.phase = "侵攻"
+                    st.rerun()
+
+            elif is_defender_win:
+                winner_owner = dfn_unit["owner"]
+                winner_name = b_info["player_unit_name"]
+                loser_name = b_info["enemy_unit_name"]
+                
+                st.success(f"🛡️ **【防衛成功】防衛側：{winner_name}** が領地を守り抜きました！")
+                st.error(f"💀 **【全滅】攻撃側：{loser_name}** の遠征軍は返り討ちにあい、全滅しました。")
+                
+                if st.button("防衛報告を確認してマップへ戻る", use_container_width=True, type="primary"):
+                    # ① アーサーのスキル【円卓の加護】判定（防衛側がプレイヤーかつアーサー所有時のみ兵士1復帰）
+                    if winner_owner == "プレイヤー(赤)" and dfn_unit["captain"].get("skill_id") == "avalon_bless":
+                        st.session_state.units[dfn_uid]["count"] += 1
+                        add_log("🛡️ スキル【円卓の加護】が発動！負傷兵が1名戦線に復帰しました。")
+                    
+                    # ② 敗北した侵略部隊（攻撃側）を削除
+                    if atk_uid in st.session_state.units:
+                        del st.session_state.units[atk_uid]
+                    
+                    # 💡 防衛成功のため、領地の所有権は現状維持
+                    add_log(f"🛡️ 【戦果】{winner_name} が見事に【{target_node}】を死守！ 攻め込んできた {loser_name} を完全撃退しました。")
+                    
+                    st.session_state.battle_info = None
+                    st.session_state.phase = "侵攻"
+                    st.rerun()
+
+            elif is_draw:
+                st.warning("⚖️ **【相打ち】激戦の末、双方の全部隊が全滅しました。**")
+                if st.button("凄惨な結末を確認してマップへ戻る", use_container_width=True):
+                    if atk_uid in st.session_state.units: del st.session_state.units[atk_uid]
+                    if dfn_uid in st.session_state.units: del st.session_state.units[dfn_uid]
+                    
+                    # 領地は「中立」にリセットされる
+                    st.session_state.nodes[target_node]["owner"] = "中立"
+                    add_log(f"🪦 【戦果】{target_node} の合戦は凄惨な相打ちに終わり、両軍全滅。領地は【中立】に引き戻されました。")
+                    
+                    st.session_state.battle_info = None
+                    st.session_state.phase = "侵攻"
+                    st.rerun()
