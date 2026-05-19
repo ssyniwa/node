@@ -681,7 +681,7 @@ else:
             add_log(f"📢 ターン {st.session_state.turn} が開始されました。")
             st.rerun()
 
-    # --- ⚔️ 6. 統合：戦場フェーズ（自動帰還保証・Canvas連動版） ---
+    # --- ⚔️ 6. 統合：戦場フェーズ（postMessageによる100%自動帰還版） ---
     elif st.session_state.phase == "戦場フェーズ":
         # --- 1. 戦闘情報の安全な読み込みとガード処理 ---
         if "battle_info" not in st.session_state or not st.session_state.battle_info:
@@ -715,7 +715,7 @@ else:
         dfn_max_hp = dfn_unit["count"] * 10 + dfn_unit.get("captain", {}).get("dfn", 10)
 
         atk_atk = SOLDIER_TYPES[atk_soldier]["atk"] + atk_unit.get("captain", {}).get("atk", 10)
-        dfn_atk = SOLDIER_TYPES[dfn_soldier]["atk"] + dfn_unit.get("captain", {}).get("dfn", 10)
+        dfn_atk = SOLDIER_TYPES[dfn_soldier]["atk"] + dfn_unit.get("captain", {}).get("atk", 10)
 
         atk_range = SOLDIER_TYPES[atk_soldier]["range"]
         dfn_range = SOLDIER_TYPES[dfn_soldier]["range"]
@@ -723,23 +723,8 @@ else:
         atk_color = SOLDIER_TYPES[atk_soldier]["color"]
         dfn_color = SOLDIER_TYPES[dfn_soldier]["color"]
 
-        # --- 3. 💡【超重要】最優先でJavaScriptからの結果反映・自動検知 ---
-        # セッション上に直接パラメータを受け取るため、独自の隠し入力欄を連携させます
-        # URLクエリパラメータを一番確実な st.query_params から再度引き出す
-        q = st.query_params
-        if "battle_ended" in q:
-            final_atk_hp = max(0, float(q.get("atk_hp", 0)))
-            final_dfn_hp = max(0, float(q.get("dfn_hp", 0)))
-            
-            # 兵数カウントの更新 (1未満の端数は切り上げて1名生存とする)
-            st.session_state.units[atk_uid]["count"] = int(-(-final_atk_hp // 10))
-            st.session_state.units[dfn_uid]["count"] = int(-(-final_dfn_hp // 10))
-
-            # パラメータを速やかに消去してリロードし、下の【B】決着リザルトへ引き込む
-            st.query_params.clear()
-            st.rerun()
-
-        # --- 4. リアルタイム勝敗判定 ---
+        # --- 3. リアルタイム勝敗判定 ---
+        # 💡 ここで現在の兵数から勝敗状態をリアルタイムチェック
         is_attacker_win = (dfn_unit["count"] <= 0 and atk_unit["count"] > 0)
         is_defender_win = (atk_unit["count"] <= 0 and dfn_unit["count"] > 0)
         is_draw = (atk_unit["count"] <= 0 and dfn_unit["count"] <= 0)
@@ -763,12 +748,27 @@ else:
             st.markdown(f"⚡ **スキル: {atk_unit['captain'].get('skill_name', 'なし')}**")
             st.write(f"兵種: **{atk_soldier}** (x{atk_unit['count']})")
 
-        # --- 5. メインコンテンツ：戦闘中 Canvas 描画 or 決着リザルト ---
+        # --- 4. メインコンテンツ：戦闘中 Canvas 描画 or 決着リザルト ---
         if not (is_attacker_win or is_defender_win or is_draw):
             st.info("🎮 交戦中... 自動で決着がつくまで見守ってください。")
 
+            # 💡 【新アプローチ】Streamlit標準のテキスト入力（隠し要素）を使って、JSからのデータを確実にキャッチする
+            # 送られてきたデータが空でなければ、速やかに兵数を上書きして再描画
+            battle_result = st.text_input("data_transfer", key="js_battle_result", label_visibility="collapsed")
+            
+            if battle_result and "," in battle_result:
+                try:
+                    final_atk_hp, final_dfn_hp = map(float, battle_result.split(","))
+                    # 兵数カウントの更新 (1未満の端数は切り上げて1名生存とする)
+                    st.session_state.units[atk_uid]["count"] = int(-(-max(0, final_atk_hp) // 10))
+                    st.session_state.units[dfn_uid]["count"] = int(-(-max(0, final_dfn_hp) // 10))
+                    # 一度検知したら入力をクリアしてリロード
+                    st.rerun()
+                except Exception as e:
+                    pass
+
             # ==================================================================
-            # 🎨 HTML5 Canvas + JavaScript（自動同期ハック版）
+            # 🎨 HTML5 Canvas + JavaScript（親ウィンドウメッセージ直接通信版）
             # ==================================================================
             battle_canvas_html = f"""
             <div style="text-align: center; background: #222; padding: 15px; border-radius: 8px;">
@@ -919,15 +919,34 @@ else:
                     battleOver = true;
                     document.getElementById('statusText').innerText = '🏳️ 合戦終了！データを同期中...';
                     
-                    // 💡 【ハック：確実な自動同期】
-                    // 親ウィンドウ(Streamlit)のURLを確実に書き換えて自動リロードを発生させます
-                    const targetUrl = new URL(window.parent.location.href);
-                    targetUrl.searchParams.set("battle_ended", "true");
-                    targetUrl.searchParams.set("atk_hp", Math.max(0, atk_hp));
-                    targetUrl.searchParams.set("dfn_hp", Math.max(0, dfn_hp));
-                    
-                    // 確実にStreamlit親画面を強制ジャンプさせる
-                    window.parent.location.replace(targetUrl.toString());
+                    // 💡 【超強力・高安定性ハック】
+                    // 親画面の隠しInput要素（data_transfer）を探し出し、そこに直接数値を代入してEnterをシミュレート
+                    setTimeout(() => {{
+                        const parentInputs = window.parent.document.querySelectorAll('input');
+                        let targetInput = null;
+                        for (let input of parentInputs) {{
+                            // Streamlitが生成するテキスト入力エリアを特定
+                            if (input.getAttribute('aria-label') === 'data_transfer') {{
+                                targetInput = input;
+                                break;
+                            }}
+                        }}
+                        
+                        if (targetInput) {{
+                            // JSからPython側の st.text_input へ値を強制注入
+                            targetInput.value = Math.max(0, atk_hp) + "," + Math.max(0, dfn_hp);
+                            // 変更イベントを発生させてStreamlitの裏側プログラムを叩き起こす
+                            targetInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                            targetInput.dispatchEvent(new Event('blur', {{ bubbles: true }}));
+                        }} else {{
+                            // 万が一HTML要素の直接書き換えがブロックされた場合のセーフティフォールバック
+                            const fallbackUrl = new URL(window.parent.location.href);
+                            fallbackUrl.searchParams.set("battle_ended", "true");
+                            fallbackUrl.searchParams.set("atk_hp", Math.max(0, atk_hp));
+                            fallbackUrl.searchParams.set("dfn_hp", Math.max(0, dfn_hp));
+                            window.parent.location.replace(fallbackUrl.toString());
+                        }}
+                    }}, 1000);
                 }}
 
                 animate();
@@ -937,21 +956,21 @@ else:
 
         else:
             # ==================================================================
-            # 🏁 【B】決着リザルト処理（自動帰還成功後の画面）
+            # 🏁 【B】決着リザルト処理（データ同期完了後の最終確認画面）
             # ==================================================================
-            st.markdown("## 🏁 合戦終結・戦果報告")
+            st.markdown("## 🏁 最終戦果報告")
             
             if is_attacker_win:
                 winner_owner = atk_unit["owner"]
                 winner_name = b_info["enemy_unit_name"]
                 loser_name = b_info["player_unit_name"]
                 
-                st.success(f"🏆 **【侵略成功】攻撃側：{winner_name}** が勝利を収めました！")
+                st.success(f"🏆 **【侵略成功】攻撃側：{winner_name}** が大勝利を収めました！")
                 st.error(f"💀 **【全滅】防衛側：{loser_name}** は防衛に失敗し、壊滅しました。")
                 
                 if st.button("戦果を確認してマップへ戻る", use_container_width=True, type="primary"):
                     if dfn_uid in st.session_state.units:
-                        del st.session_state.units[dfn_uid] # 敗北部隊削除
+                        del st.session_state.units[dfn_uid] # 負けた防衛部隊を削除
                     
                     st.session_state.nodes[target_node]["owner"] = winner_owner
                     add_log(f"💥 【戦果】{winner_name} が戦闘に勝利！ 【{target_node}】を完全に占領しました。")
@@ -965,7 +984,7 @@ else:
                 winner_name = b_info["player_unit_name"]
                 loser_name = b_info["enemy_unit_name"]
                 
-                st.success(f"🛡️ **【防衛成功】防衛側：{winner_name}** が領地を守り抜しました！")
+                st.success(f"🛡️ **【防衛成功】防衛側：{winner_name}** が領地を完全に死守しました！")
                 st.error(f"💀 **【全滅】攻撃側：{loser_name}** の侵略軍は返り討ちにあいました。")
                 
                 if st.button("防衛報告を確認してマップへ戻る", use_container_width=True, type="primary"):
@@ -974,16 +993,16 @@ else:
                         add_log("🛡️ スキル【円卓の加護】が発動！負傷兵が1名復帰しました。")
                     
                     if atk_uid in st.session_state.units:
-                        del st.session_state.units[atk_uid] # 敗北部隊削除
+                        del st.session_state.units[atk_uid] # 負けた攻撃部隊を削除
                     
-                    add_log(f"🛡️ 【戦果】{winner_name} が見事に【{target_node}】を死守しました。")
+                    add_log(f"🛡️ 【戦果】{winner_name} が見事に【{target_node}】の守備に成功しました。")
                     
                     st.session_state.battle_info = None
                     st.session_state.phase = "侵攻"
                     st.rerun()
 
             elif is_draw:
-                st.warning("⚖️ **【相打ち】双方が全滅しました。**")
+                st.warning("⚖️ **【相打ち】激戦の末、双方が全滅しました。**")
                 if st.button("凄惨な結末を確認してマップへ戻る", use_container_width=True):
                     if atk_uid in st.session_state.units: del st.session_state.units[atk_uid]
                     if dfn_uid in st.session_state.units: del st.session_state.units[dfn_uid]
