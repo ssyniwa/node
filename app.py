@@ -268,10 +268,10 @@ def draw_map_improved():
         net.save_graph(path)
         with open(path, 'r', encoding='utf-8') as f: html_data = f.read()
     components.html(html_data, height=460)
-reset_game()
+
 if "game_started" not in st.session_state:
     st.session_state.game_started = False
-
+    reset_game()
 # ==============================================================================
 # Aパターン：ゲーム開始前の「初期設定（タイトル）画面」
 # ==============================================================================
