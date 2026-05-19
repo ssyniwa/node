@@ -203,9 +203,11 @@ def run_ai_turn():
     
     # マップ上に活動可能なAI部隊が本当に1つもない場合のみガード
     if not all_ai_units:
-        add_log("🏳️ マップ上に活動可能なAI部隊が1つも存在しません。")
+        add_log("🏳️ マップ上に活動可能なAI部隊が1つも存在しません。次のターンに移ります。")
+        st.session_state.phase = "資金確保"
+        st.session_state.turn += 1
+        st.rerun()
         return
-
     # 実際に動かせる部隊の処理ループ
     for ai_uid, ai_unit in all_ai_units.items():
         
@@ -277,7 +279,12 @@ def run_ai_turn():
 
     # 平和にAIターンが終了した場合のクリーンアップ
     _cleanup_ai_flags()
-    add_log("🤖 AI軍の全作戦行動が完了しました。プレイヤーのターンに移ります。")
+    add_log("🤖 AI軍の全作戦行動が完了しました。次のターン（資金確保フェーズ）に移ります。")
+    
+    # 💡 【重要】AIターン終了時にフェーズを戻し、ターンを進める処理を追加
+    st.session_state.phase = "資金確保"
+    st.session_state.turn += 1
+    st.rerun()
 
 def _cleanup_ai_flags():
     """AIターンの終了時に、プレイヤー以外の全部隊のフラグを一括リフレッシュ"""
