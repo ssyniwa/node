@@ -273,9 +273,8 @@ def run_ai_turn():
                 else:
                     add_log(f"🚚 【AI移動】{ai_owner} の {ai_unit['captain']['name']}隊 が {current_loc} から {target_node} へ移動しました。")
                 
-                _cleanup_ai_flags()
-                st.rerun()
-                return
+                # 💡 【重要】ここではリターンせず、次のAI部隊の行動処理へループを継続させる
+                continue
 
     # 平和にAIターンが終了した場合のクリーンアップ
     _cleanup_ai_flags()
