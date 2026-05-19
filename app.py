@@ -448,68 +448,64 @@ else:
                 st.session_state.turn += 1
                 st.rerun()
         else:
-            selected_unit_name = st.selectbox("動かす部隊:", list(player_units.keys()))
-            unit_info = player_units[selected_unit_name]
-            current_loc = unit_info["location"]
-            
-            possible_destinations = st.session_state.nodes[current_loc]["adjacent"]
-            target_loc = st.selectbox("進軍先を選択:", possible_destinations)
-            
-            # 💡 移動先に敵部隊（青や緑）がいるかチェック
-            enemy_units_at_dest = [k for k, v in st.session_state.units.items() if v["location"] == target_loc and v["owner"] != "プレイヤー(赤)" and v["count"] > 0]
-            
-            if enemy_units_at_dest:
-                st.warning(f"⚠️ {target_loc} には敵【{enemy_units_at_dest[0]}】がいます！進軍すると戦闘が始まります。")
-            
             # --- 侵攻・移動ボタンの処理 ---
-            if st.button("⚔️ この領地へ進軍（移動・戦闘開始）", use_container_width=True):
-                target_node = st.session_state.selected_node  # 移動先の領地名
-                p_uid = st.session_state.selected_my_unit     # 動かそうとしている自軍の部隊ID
-                p_unit = st.session_state.units[p_uid]        # 自軍の部隊データ
-                
-                # 💡 【重要】移動先に「本当にAI（敵）がいるか」を、プレイヤー部隊が動く前にチェックする！
-                enemy_units_in_node = [
-                    {"id": uid, "data": u} for uid, u in st.session_state.units.items()
-                    if u["location"] == target_node and u["owner"] != "プレイヤー(赤)"  # 👈 プレイヤー以外（敵）だけを厳密に抽出
-                ]
-                
-                if len(enemy_units_in_node) > 0:
-                    # 🔥パターンA：敵部隊が待ち構えている場合（戦闘発生！）
-                    active_enemy = enemy_units_in_node[0]  # 連戦ロジック：先頭の1部隊をロック
-                    enemy_uid = active_enemy["id"]
-                    e_unit = active_enemy["data"]
+            # 💡 安全対策：そもそもセッションに選択されたノードがない、または空の場合は処理を行わない
+            if "selected_node" not in st.session_state or not st.session_state.selected_node:
+                st.warning("🗺️ マップ上の領地をどれか一つ選択してください。")
+            else:
+                # 💡 ここからはノードが確実に選択されている場合のみ実行される
+                if st.button("⚔️ この領地へ進軍（移動・戦闘開始）", use_container_width=True):
+                    target_node = st.session_state.selected_node  # 移動先の領地名
+                    p_uid = st.session_state.selected_my_unit     # 動かそうとしている自軍の部隊ID
                     
-                    # 1. 先に戦闘情報をセッションに固定（バインド）する
-                    st.session_state.battle_info = {
-                        "player_uid": p_uid,
-                        "enemy_uid": enemy_uid,
-                        "player_unit_name": f"{p_unit['captain']['name']}隊",
-                        "enemy_unit_name": f"{e_unit['captain']['name']}隊",
-                        "target_node": target_node
-                    }
-                    
-                    # 2. 戦闘確定後に、自分の部隊をその領地（戦場）へ潜入させる
-                    st.session_state.units[p_uid]["location"] = target_node
-                    st.session_state.units[p_uid]["moved"] = True  # 行動済みに
-                    
-                    # 3. 戦場フェーズへ強制移行
-                    st.session_state.phase = "戦場フェーズ"
-                    add_log(f"⚔️ 敵の防衛網を検知！{p_unit['captain']['name']}隊が {target_node} で {e_unit['captain']['name']}隊 と交戦に入ります！")
-                    st.rerun()
-                    
-                else:
-                    # 🕊️パターンB：敵部隊がいない場合（ただの移動、または無人の中立地の無血占領）
-                    st.session_state.units[p_uid]["location"] = target_node
-                    st.session_state.units[p_uid]["moved"] = True  # 行動済みに
-                    
-                    # もし移動先が「中立」または「他国の領地（部隊なし）」なら、即座に領地をプレイヤーのものにする
-                    if st.session_state.nodes[target_node]["owner"] != "プレイヤー(赤)":
-                        st.session_state.nodes[target_node]["owner"] = "プレイヤー(赤)"
-                        add_log(f"🚩 【占領】{p_unit['captain']['name']}隊が、無人の {target_node} を確保・占領しました。")
+                    # 💡 安全対策：自軍の部隊も選択されているかチェック
+                    if not p_uid or p_uid not in st.session_state.units:
+                        st.error("💂‍♂️ 進軍させる自軍の部隊を選択してください。")
                     else:
-                        add_log(f"🚚 【移動】{p_unit['captain']['name']}隊が {target_node} へ移動しました。")
+                        p_unit = st.session_state.units[p_uid]        # 自軍の部隊データ
                         
-                    st.rerun()
+                        # 移動先に「本当にAI（敵）がいるか」をチェック
+                        enemy_units_in_node = [
+                            {"id": uid, "data": u} for uid, u in st.session_state.units.items()
+                            if u["location"] == target_node and u["owner"] != "プレイヤー(赤)"
+                        ]
+                        
+                        if len(enemy_units_in_node) > 0:
+                            # 🔥パターンA：敵部隊が待ち構えている場合（戦闘発生！）
+                            active_enemy = enemy_units_in_node[0]  # 先頭の1部隊をロック
+                            enemy_uid = active_enemy["id"]
+                            e_unit = active_enemy["data"]
+                            
+                            # 戦闘情報をセッションに固定
+                            st.session_state.battle_info = {
+                                "player_uid": p_uid,
+                                "enemy_uid": enemy_uid,
+                                "player_unit_name": f"{p_unit['captain']['name']}隊",
+                                "enemy_unit_name": f"{e_unit['captain']['name']}隊",
+                                "target_node": target_node
+                            }
+                            
+                            # 自分の部隊をその領地（戦場）へ潜入させ、行動済みに
+                            st.session_state.units[p_uid]["location"] = target_node
+                            st.session_state.units[p_uid]["moved"] = True
+                            
+                            # 戦場フェーズへ強制移行
+                            st.session_state.phase = "戦場フェーズ"
+                            add_log(f"⚔️ 敵の防衛網を検知！{p_unit['captain']['name']}隊が {target_node} で {e_unit['captain']['name']}隊 と交戦に入ります！")
+                            st.rerun()
+                            
+                        else:
+                            # 🕊️パターンB：敵部隊がいない場合（ただの移動、または無人の中立地の無血占領）
+                            st.session_state.units[p_uid]["location"] = target_node
+                            st.session_state.units[p_uid]["moved"] = True
+                            
+                            if st.session_state.nodes[target_node]["owner"] != "プレイヤー(赤)":
+                                st.session_state.nodes[target_node]["owner"] = "プレイヤー(赤)"
+                                add_log(f"🚩 【占領】{p_unit['captain']['name']}隊が、無人の {target_node} を確保・占領しました。")
+                            else:
+                                add_log(f"🚚 【移動】{p_unit['captain']['name']}隊が {target_node} へ移動しました。")
+                                
+                            st.rerun()
 
 
     # --- ⚔️ 6. 新設：戦場フェーズ（Canvasシミュレーション） ---
