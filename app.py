@@ -53,7 +53,10 @@ def reset_game():
     st.session_state.map_generated = True
     st.session_state.phase = "資金確保"
     st.session_state.turn = 1
-    
+    st.session_state.selected_node = None     # 選択ノード
+    st.session_state.selected_my_unit = None  # 選択自軍部隊
+    st.session_state.battle_info = None       # 戦闘情報
+    st.session_state.logs = ["🎮 ゲームが初期化されました！新たな戦いが始まります。"]
     st.session_state.country_data = {
         "プレイヤー(赤)": {"gold": 500, "captains": []},
         "AI(青)": {"gold": 300, "captains": []},
@@ -62,20 +65,12 @@ def reset_game():
     
     st.session_state.units = {}
     
-    # 初期AI部隊の配備
-    st.session_state.units["AI青軍第1部隊"] = {
-        "owner": "AI(青)", "captain": {"name": "AI将軍A", "atk": 10, "dfn": 10, "mot": 5, "image": "assets/aia.png"},
-        "soldier_type": "砲撃部隊", "count": 6, "location": "領地_4", "moved": False
-    }
-    st.session_state.units["AI緑軍第1部隊"] = {
-        "owner": "AI(緑)", "captain": {"name": "AI将軍B", "atk": 10, "dfn": 10, "mot": 5, "image": "assets/aib.png"},
-        "soldier_type": "銃撃部隊", "count": 12, "location": "領地_7", "moved": False
-    }
+    
 
     # 戦闘結果をJavaScriptから受け取るためのトリガー変数
     st.session_state.battle_result = None
     st.session_state.active_battle = {}
-if "gold" not in st.session_state:
+if "gold" not in st.session_state.country_data:
     reset_game()
 
 def generate_random_map(num_nodes):
