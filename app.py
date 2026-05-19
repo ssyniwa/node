@@ -75,7 +75,7 @@ def reset_game():
     # 戦闘結果をJavaScriptから受け取るためのトリガー変数
     st.session_state.battle_result = None
     st.session_state.active_battle = {}
-if "map_generated" not in st.session_state:
+if "gold" not in st.session_state:
     reset_game()
 
 def generate_random_map(num_nodes):
