@@ -711,26 +711,29 @@ else:
         atk_unit = st.session_state.units[atk_uid]
         dfn_unit = st.session_state.units[dfn_uid]
 
-        # 💡 JS（Canvas）からの勝敗シグナルを受信するためのURLパラメータ確認
+        # 💡 JS（Canvas）からの勝敗シグナルを受信
         query_params = st.query_params
         if "battle_result" in query_params:
             res = query_params["battle_result"]
-            # パラメータをクリアして無限ループ防止
-            st.query_params.clear()
+            st.query_params.clear() # 即座にクリアして無限ループ防止
             
-            # JS側の勝敗結果に基づいて、Python側のデータを正確に上書き
-            if res == "dfn_win":
-                # 防衛側の勝利：攻撃側を全滅、防衛側は損耗しつつ生存
-                st.session_state.units[atk_uid]["count"] = 0
-                st.session_state.units[dfn_uid]["count"] = max(1, int(dfn_unit["count"] * 0.4))
-            elif res == "atk_win":
-                # 攻撃側の勝利：防衛側を全滅、攻撃側は損耗しつつ生存
-                st.session_state.units[dfn_uid]["count"] = 0
-                st.session_state.units[atk_uid]["count"] = max(1, int(atk_unit["count"] * 0.4))
-            elif res == "draw":
-                st.session_state.units[dfn_uid]["count"] = 0
-                st.session_state.units[atk_uid]["count"] = 0
-                
+            # --- 防御的処理：部隊データが存在するかを必ず確認 ---
+            if atk_uid in st.session_state.units and dfn_uid in st.session_state.units:
+                if res == "dfn_win":
+                    # 防衛側の勝利：攻撃側を削除、防衛側は生存
+                    del st.session_state.units[atk_uid]
+                    st.session_state.units[dfn_uid]["count"] = max(1, int(st.session_state.units[dfn_uid]["count"] * 0.4))
+                elif res == "atk_win":
+                    # 攻撃側の勝利：防衛側を削除、攻撃側は生存
+                    del st.session_state.units[dfn_uid]
+                    st.session_state.units[atk_uid]["count"] = max(1, int(st.session_state.units[atk_uid]["count"] * 0.4))
+                elif res == "draw":
+                    # 相打ち
+                    if atk_uid in st.session_state.units: del st.session_state.units[atk_uid]
+                    if dfn_uid in st.session_state.units: del st.session_state.units[dfn_uid]
+            
+            # --- 【重要】戦闘情報を完全に消去 ---
+            st.session_state.battle_info = None
             st.rerun()
 
         st.title("⚔️ リアルタイム交戦スクリーン（戦場フェーズ）")
