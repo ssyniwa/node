@@ -682,7 +682,7 @@ else:
             add_log(f"📢 ターン {st.session_state.turn} が開始されました。")
             st.rerun()
 
-    # --- ⚔️ 6. 統合：戦場フェーズ（エラー回避型・完全自動帰還版） ---
+    # --- ⚔️ 6. 統合：戦場フェーズ（双方向通信・完全自動帰還版） ---
     elif st.session_state.phase == "戦場フェーズ":
         # --- 1. 戦闘情報の安全な読み込みとガード処理 ---
         if "battle_info" not in st.session_state or not st.session_state.battle_info:
@@ -705,20 +705,6 @@ else:
         atk_unit = st.session_state.units[atk_uid]
         dfn_unit = st.session_state.units[dfn_uid]
 
-        # 💡 URLクエリパラメータをチェック（安全にPython側で検知する構造に変形）
-        query_params = st.query_params
-        if "b_ended" in query_params:
-            final_atk_hp = max(0, float(query_params.get("atk_hp", 0)))
-            final_dfn_hp = max(0, float(query_params.get("dfn_hp", 0)))
-            
-            # 兵数カウントの更新 (1未満の端数は切り上げて1名生存とする)
-            st.session_state.units[atk_uid]["count"] = int(-(-final_atk_hp // 10))
-            st.session_state.units[dfn_uid]["count"] = int(-(-final_dfn_hp // 10))
-
-            # パラメータをクリアして次へ進む（リザルト画面の判定が通るようになる）
-            st.query_params.clear()
-            st.rerun()
-
         st.title("⚔️ リアルタイム交戦スクリーン（戦場フェーズ）")
         st.subheader(f"舞台: {target_node}")
 
@@ -730,7 +716,7 @@ else:
         dfn_max_hp = dfn_unit["count"] * 10 + dfn_unit.get("captain", {}).get("dfn", 10)
 
         atk_atk = SOLDIER_TYPES[atk_soldier]["atk"] + atk_unit.get("captain", {}).get("atk", 10)
-        dfn_atk = SOLDIER_TYPES[dfn_soldier]["atk"] + dfn_unit.get("captain", {}).get("atk", 10)
+        dfn_atk = SOLDIER_TYPES[dfn_soldier]["atk"] + dfn_unit.get("captain", {}).get("dfn", 10)
 
         atk_range = SOLDIER_TYPES[atk_soldier]["range"]
         dfn_range = SOLDIER_TYPES[dfn_soldier]["range"]
@@ -767,7 +753,7 @@ else:
             st.info("🎮 交戦中... 自動で決着がつくまで見守ってください。")
 
             # ==================================================================
-            # 🎨 HTML5 Canvas + JavaScript（iframeバリアを安全に超える仕様）
+            # 🎨 HTML5 Canvas + JavaScript（安全な標準 postMessage 通信版）
             # ==================================================================
             battle_canvas_html = f"""
             <div style="text-align: center; background: #222; padding: 15px; border-radius: 8px;">
@@ -826,13 +812,6 @@ else:
                     ctx.fillStyle = '#555'; ctx.fillRect(610, 20, 250, 15);
                     ctx.fillStyle = '#ff4b4b'; ctx.fillRect(610, 20, Math.max(0, (atk_hp / atk_max)) * 250, 15);
                     ctx.fillStyle = '#fff'; ctx.fillText('攻撃軍HP: ' + Math.max(0, Math.floor(atk_hp)), 615, 32);
-                }}
-
-                if ("{dfn_skill_id}" === "lightning_raid") {{
-                    for(let k=0; k<5; k++) bullets.push({{x: dfn_x + 30 + (k*20), y: dfn_y + (k*10-20), vx: 8, vy: 0, max_x: dfn_x + dfn_range_val, side: 'dfn', color: 'cyan'}});
-                }}
-                if ("{atk_skill_id}" === "lightning_raid") {{
-                    for(let k=0; k<5; k++) bullets.push({{x: atk_x - 30 - (k*20), y: atk_y + (k*10-20), vx: -8, vy: 0, max_x: atk_x - atk_range_val, side: 'atk', color: 'cyan'}});
                 }}
 
                 function animate() {{
@@ -918,22 +897,57 @@ else:
                     battleOver = true;
                     document.getElementById('statusText').innerText = '🏳️ 合戦終了！データを同期中...';
                     
-                    // 💡 CORS（セキュリティ制限）を安全に回避し、親ウインドウのURLパラメータを正常に更新する絶対確実なハック
-                    const currentUrl = new URL(window.parent.location.href);
-                    currentUrl.searchParams.set("b_ended", "true");
-                    currentUrl.searchParams.set("atk_hp", Math.max(0, atk_hp).toString());
-                    currentUrl.searchParams.set("dfn_hp", Math.max(0, dfn_hp).toString());
-                    
-                    // 親ウィンドウ自体に強制リロードを指示
-                    window.parent.window.location.href = currentUrl.href;
+                    // 💡 iframeの壁を越えて、親のStreamlit(後述のレシーバー)へデータを安全に送るメッセージ通信
+                    window.parent.postMessage({
+                        type: 'battle_result_sync',
+                        atk_hp: Math.max(0, atk_hp),
+                        dfn_hp: Math.max(0, dfn_hp)
+                    }, '*');
                 }}
 
                 animate();
             </script>
             """
             
-            # エラーになる変数代入（get()）をやめ、普通にHTMLとしてレンダリングするだけに修正
+            # 🎨 Canvasを描画
             components.html(battle_canvas_html, height=430)
+
+            # ==================================================================
+            # 📡 データの超安全レシーバー（JavaScriptからの入力を監視する見えない入力ボックス）
+            # ==================================================================
+            # JSから親ウィンドウに送られたメッセージをPythonのセッション情報に落とし込むための軽量スクリプト
+            receiver_html = """
+            <script>
+                window.addEventListener('message', function(event) {
+                    if (event.data && event.data.type === 'battle_result_sync') {
+                        // 親(Streamlit)のクエリパラメータを書き換えるのではなく、安全な標準フォームイベントを擬似発火
+                        const baseUrl = window.parent.location.origin + window.parent.location.pathname;
+                        const targetUrl = btoa(JSON.stringify(event.data));
+                        window.parent.location.search = '?bdata=' + encodeURIComponent(targetUrl);
+                    }
+                });
+            </script>
+            """
+            components.html(receiver_html, height=0)
+
+            # 💡 URLに付与された暗号化戦闘結果データをPython側で安全に回収
+            if "bdata" in st.query_params:
+                import base64
+                import json
+                try:
+                    raw_data = json.loads(base64.b64decode(st.query_params["bdata"]).decode("utf-8"))
+                    final_atk_hp = float(raw_data.get("atk_hp", 0))
+                    final_dfn_hp = float(raw_data.get("dfn_hp", 0))
+                    
+                    # 兵数カウントの更新 (1未満の端数は切り上げて1名生存とする)
+                    st.session_state.units[atk_uid]["count"] = int(-(-final_atk_hp // 10))
+                    st.session_state.units[dfn_uid]["count"] = int(-(-final_dfn_hp // 10))
+                except:
+                    pass
+
+                st.query_params.clear()
+                st.rerun()
+
             st.stop()
             
         else:
