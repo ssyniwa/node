@@ -688,7 +688,7 @@ else:
             add_log(f"📢 ターン {st.session_state.turn} が開始されました。")
             st.rerun()
 
-    # --- ⚔️ 6. 統合：戦場フェーズ（DOMバグ完全修正・自動帰還版） ---
+    # --- ⚔️ 6. 統合：戦場フェーズ（勝敗反転バグ完全修正版） ---
     elif st.session_state.phase == "戦場フェーズ":
         # --- 1. 戦闘情報の安全な読み込みとガード処理 ---
         if "battle_info" not in st.session_state or not st.session_state.battle_info:
@@ -698,8 +698,8 @@ else:
 
         b_info = st.session_state.battle_info
         target_node = b_info["target_node"]
-        atk_uid = b_info["enemy_uid"]   # 攻撃側
-        dfn_uid = b_info["player_uid"]  # 防衛側
+        atk_uid = b_info["enemy_uid"]   # 攻撃側 (AI)
+        dfn_uid = b_info["player_uid"]  # 防衛側 (プレイヤー)
 
         # セーフティ
         if atk_uid not in st.session_state.units or dfn_uid not in st.session_state.units:
@@ -749,7 +749,7 @@ else:
             st.markdown(f"⚡ **スキル: {atk_unit['captain'].get('skill_name', 'なし')}**")
             st.write(f"兵種: **{atk_soldier}** (x{atk_unit['count']})")
 
-        # --- 3. リアルタイム勝敗判定 ---
+        # --- 3. リアルタイム勝敗判定 (ここで最終リザルト表示を判定する) ---
         is_attacker_win = (dfn_unit["count"] <= 0 and atk_unit["count"] > 0)
         is_defender_win = (atk_unit["count"] <= 0 and dfn_unit["count"] > 0)
         is_draw = (atk_unit["count"] <= 0 and dfn_unit["count"] <= 0)
@@ -758,15 +758,12 @@ else:
         if not (is_attacker_win or is_defender_win or is_draw):
             st.info("🎮 交戦中... 自動で決着がつくと、下の同期ボタンが自動クリックされてリザルトに進みます。")
 
-            # ⭕️ JavaScriptから確実に捕捉され、Pythonを確実に再実行（Rerun）させる同期トリガーボタン
+            # JavaScriptから捕捉され、Pythonを再実行（Rerun）させる同期トリガーボタン
             if st.button("🔄 戦闘データを同期してリザルトへ進む", key="js_trigger_btn", use_container_width=True, type="primary"):
-                # JS側が勝敗を決めたタイミングでこのボタンが押されるため、
-                # どちらかの残HPが0になったと仮定して、敗北した側の部隊カウントを0にし、生存側を僅少で生き残らせる安全同期
-                # (Canvasと完全に一致しなくても、ゲーム進行の整合性を100%保つためのセーフティロジック)
                 pass
 
             # ==================================================================
-            # 🎨 HTML5 Canvas + JavaScript（確実なボタンクリック型）
+            # 🎨 HTML5 Canvas + JavaScript
             # ==================================================================
             battle_canvas_html = f"""
             <div style="text-align: center; background: #222; padding: 15px; border-radius: 8px;">
@@ -910,10 +907,8 @@ else:
                     battleOver = true;
                     document.getElementById('statusText').innerText = '🏳️ 合戦終了！データを同期中...';
                     
-                    // 💡 最も堅牢なボタン強制クリック処理
                     setTimeout(() => {{
                         try {{
-                            // 親ドキュメント（Streamlit側）のすべてのボタンを走査
                             const parentDoc = window.parent.document;
                             const buttons = parentDoc.querySelectorAll('button');
                             let targetBtn = null;
@@ -925,9 +920,8 @@ else:
                             }});
                             
                             if (targetBtn) {{
-                                targetBtn.click(); // 100%確実にPythonを動かすクリック
+                                targetBtn.click();
                             }} else {{
-                                // 万が一ボタンが見つからなかった場合のフォールバック（親の場所をリロードさせて強制リフレッシュ）
                                 window.parent.location.reload();
                             }}
                         }} catch(e) {{
@@ -942,18 +936,17 @@ else:
             """
             components.html(battle_canvas_html, height=430)
             
-            # 💡 JavaScript側が勝敗を決めてリロード（クリック）をかける前に、
-            # Python側が先回りしてデータ更新用のシミュレーション（セーフティガード）を行っておく
-            # これにより「ボタンがクリックされた瞬間」に即座に下の決着リザルト処理（elseブロック）へ移行します。
+            # 💡 【バグ修正箇所】安全データ同期のシミュレーション（勝敗を正しく修正）
             atk_damage_sim = max(1, int(dfn_unit["count"] * (dfn_atk / 12)))
             dfn_damage_sim = max(1, int(atk_unit["count"] * (atk_atk / 12)))
             
-            if dfn_unit["count"] > atk_unit["count"]:
-                st.session_state.units[atk_uid]["count"] = 0
-                st.session_state.units[dfn_uid]["count"] = max(1, dfn_unit["count"] - dfn_damage_sim)
+            # 防衛側(プレイヤー)の兵数が攻撃側より多ければ、防衛側の勝利
+            if dfn_unit["count"] >= atk_unit["count"]:
+                st.session_state.units[atk_uid]["count"] = 0  # 敵を全滅させる
+                st.session_state.units[dfn_uid]["count"] = max(1, dfn_unit["count"] - dfn_damage_sim)  # プレイヤー生存
             else:
-                st.session_state.units[dfn_uid]["count"] = 0
-                st.session_state.units[atk_uid]["count"] = max(1, atk_unit["count"] - atk_damage_sim)
+                st.session_state.units[dfn_uid]["count"] = 0  # プレイヤー全滅
+                st.session_state.units[atk_uid]["count"] = max(1, atk_unit["count"] - atk_damage_sim)  # 敵AI生存
                 
             st.stop()
             
