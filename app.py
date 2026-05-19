@@ -968,6 +968,7 @@ else:
                     
                     st.session_state.battle_info = None
                     st.session_state.phase = "侵攻"
+                    st.session_state.battle_result = None
                     st.rerun()
 
             elif is_defender_win:
@@ -990,6 +991,7 @@ else:
                     
                     st.session_state.battle_info = None
                     st.session_state.phase = "侵攻"
+                    st.session_state.battle_result = None
                     st.rerun()
 
             elif is_draw:
@@ -1001,4 +1003,5 @@ else:
                     add_log(f"🪦 【戦果】{target_node} は相打ちとなり、領地は【中立】に戻りました。")
                     st.session_state.battle_info = None
                     st.session_state.phase = "侵攻"
+                    st.session_state.battle_result = None
                     st.rerun()
