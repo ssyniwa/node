@@ -448,6 +448,19 @@ else:
                 st.session_state.turn += 1
                 st.rerun()
         else:
+            selected_unit_name = st.selectbox("動かす部隊:", list(player_units.keys()))
+            unit_info = player_units[selected_unit_name]
+            current_loc = unit_info["location"]
+            
+            possible_destinations = st.session_state.nodes[current_loc]["adjacent"]
+            target_loc = st.selectbox("進軍先を選択:", possible_destinations)
+            
+            # 💡 移動先に敵部隊（青や緑）がいるかチェック
+            enemy_units_at_dest = [k for k, v in st.session_state.units.items() if v["location"] == target_loc and v["owner"] != "プレイヤー(赤)" and v["count"] > 0]
+            
+            if enemy_units_at_dest:
+                st.warning(f"⚠️ {target_loc} には敵【{enemy_units_at_dest[0]}】がいます！進軍すると戦闘が始まります。")
+            
             # --- 侵攻・移動ボタンの処理 ---
             # 💡 安全対策：そもそもセッションに選択されたノードがない、または空の場合は処理を行わない
             if "selected_node" not in st.session_state or not st.session_state.selected_node:
