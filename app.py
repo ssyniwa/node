@@ -930,7 +930,7 @@ else:
                                 // 万が一ボタンが見つからなかった場合のフォールバック（親の場所をリロードさせて強制リフレッシュ）
                                 window.parent.location.reload();
                             }}
-                        } catch(e) {{
+                        }} catch(e) {{
                             console.error("Auto return error:", e);
                             window.parent.location.reload();
                         }}
