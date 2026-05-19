@@ -157,8 +157,7 @@ def run_ai_turn():
         
         if my_nodes:
             # 支配領地数に応じた雇用確率（20%〜50%）
-            spawn_chance = min(0.2 + (len(my_nodes) * 0.05), 0.5)
-            
+            spawn_chance = 0.7            
             if random.random() < spawn_chance:
                 # 現在部隊が駐留していない「空き領地」を探す
                 occupied_nodes = {u["location"] for u in st.session_state.units.values()}
@@ -217,9 +216,9 @@ def run_ai_turn():
         ai_owner = ai_unit["owner"]
         current_loc = ai_unit["location"]
         adjacent_nodes = st.session_state.nodes[current_loc]["adjacent"]
-        
-        # 40%の確率で隣接領地への進軍を試みる
-        if adjacent_nodes and random.random() < 0.4:
+
+        # 70%の確率で隣接領地への進軍を試みる
+        if adjacent_nodes and random.random() < 0.7:
             target_node = random.choice(adjacent_nodes)
             
             # 【衝突検知】移動先に「自分（例:AI(青)）とは異なる勢力」がいるかチェック
