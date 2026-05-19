@@ -593,9 +593,10 @@ else:
 
     # --- ⚔️ 6. 新設：戦場フェーズ（Canvasシミュレーション） ---
     elif st.session_state.phase == "戦場フェーズ":
-        b_info = st.session_state.active_battle
-        p_unit = st.session_state.units[b_info["player_unit_name"]]
-        e_unit = st.session_state.units[b_info["enemy_unit_name"]]
+        b_info = st.session_state.battle_info
+        # 💡 "player_uid" と "enemy_uid" という正しい「IDキー」を使って部隊データを取得する
+        p_unit = st.session_state.units[b_info["player_uid"]]
+        e_unit = st.session_state.units[b_info["enemy_uid"]]
         
         st.title("⚔️ リアルタイム交戦スクリーパ（戦場フェーズ）")
         st.subheader(f"舞台: {b_info['target_node']}")
