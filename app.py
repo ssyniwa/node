@@ -140,36 +140,90 @@ def add_log(text):
 
 def run_ai_turn():
     """
-    AIの思考・行動ルーチン。
-    マップ上のAI部隊を走査し、隣接する領地への移動、および戦闘（三つ巴対応）を処理します。
+    AIの思考・行動ルーチン（部隊作成 ＋ 侵攻・戦闘処理）。
+    1. 自軍の支配領地数に応じて、確率で新しい部隊を空き領地へ作成（雇用）します。
+    2. 既存の部隊を隣接領地へ進軍させ、三つ巴を含む戦闘を処理します。
     """
-    add_log("🤖 AI軍のターンが開始されました。作戦を考案中...")
+    add_log("🤖 AI軍のターンが開始されました。軍事戦略を立案中...")
     
-    # 1. 判定用にすべての「AI軍」の部隊をリストアップ
+    # ------------------------------------------------=========================
+    # 🛠️ 【追加】AIの部隊作成（雇用）フェーズ
+    # ----------------------------------------------------------------=========
+    # 1. 各AI勢力（青、緑など）ごとに部隊作成を判定
+    ai_factions = ["AI軍(青)", "AI軍(緑)"]
+    
+    for faction in ai_factions:
+        # この勢力が支配している領地をリストアップ
+        my_nodes = [nid for nid, n in st.session_state.nodes.items() if n["owner"] == faction]
+        
+        if my_nodes:
+            # 💡 経済力ベースの雇用判定：支配領地が多いほど、新しい部隊を作りやすくなる（最大50%）
+            spawn_chance = min(0.2 + (len(my_nodes) * 0.05), 0.5)
+            
+            if random.random() < spawn_chance:
+                # 支配領地の中から、現在部隊が駐留していない「空き領地」を探す
+                occupied_nodes = {u["location"] for u in st.session_state.units.values()}
+                empty_my_nodes = [nid for nid in my_nodes if nid not in occupied_nodes]
+                
+                # もし空き領地があれば、そこに新しい部隊を作成する
+                if empty_my_nodes:
+                    spawn_node = random.choice(empty_my_nodes)
+                    
+                    # AIユニットプール（最初期に定義したもの）からランダムに1つの編成テンプレートを取得
+                    if "AI_UNIT_POOL" in globals() or "AI_UNIT_POOL" in locals():
+                        template = random.choice(AI_UNIT_POOL)
+                    else:
+                        # 万が一プールが見つからない場合のセーフティバックアップ
+                        template = {
+                            "captain": {"name": "AI汎用将軍", "atk": 12, "dfn": 12, "skill_id": "none", "skill_name": "なし", "skill_desc": ""},
+                            "soldier_type": "歩兵部隊",
+                            "count": 5
+                        }
+                    
+                    # 新しいユニークな部隊IDを生成（例: ai_unit_17161234...）
+                    new_uid = f"ai_unit_{random.randint(100000, 999999)}"
+                    
+                    # データをコピーしてセッション上の全部隊プール（st.session_state.units）へ新規追加！
+                    st.session_state.units[new_uid] = {
+                        "owner": faction,
+                        "location": spawn_node,
+                        "count": template["count"],
+                        "moved": True, # 生成されたターンは動けないように「行動済み」に設定
+                        "captain": template["captain"].copy(),
+                        "soldier_type": template["soldier_type"]
+                    }
+                    
+                    add_log(f"💂‍♂️ 【AI徴兵】{faction}が {spawn_node} にて新将軍【{template['captain']['name']}】を招聘！"
+                            f"{template['soldier_type']}（x{template['count']}）を結成しました。")
+
+    # ----------------------------------------------------------------=========
+    # 🏹 AIの部隊進軍・衝突フェーズ（既存ロジック）
+    # ----------------------------------------------------------------=========
+    # 判定用にすべての「AI軍」の部隊を再リストアップ
     ai_units = {
         uid: u for uid, u in st.session_state.units.items() 
         if "AI軍" in u["owner"]
     }
     
-    # AI部隊が1つも存在しない場合は処理をスキップ
     if not ai_units:
         add_log("🏳️ マップ上に活動可能なAI部隊が存在しません。")
         return
 
-    # 2. 各AI部隊の行動処理ループ
+    # 各AI部隊の行動処理ループ
     for ai_uid, ai_unit in ai_units.items():
-        ai_owner = ai_unit["owner"]         # このAI部隊の勢力名（例: "AI軍(青)"、"AI軍(緑)"）
-        current_loc = ai_unit["location"]   # 部隊の現在地
-        
-        # 現在地と線でつながっている（隣接している）領地リストを取得
+        # 💡 今ターン新規雇用された部隊、または既に行動済みの部隊はスキップ
+        if ai_unit.get("moved"):
+            continue
+            
+        ai_owner = ai_unit["owner"]
+        current_loc = ai_unit["location"]
         adjacent_nodes = st.session_state.nodes[current_loc]["adjacent"]
         
-        # 💡 行動判定：40%の確率で隣接領地への進軍を試みる（孤立していない場合のみ）
+        # 行動判定：40%の確率で隣接領地への進軍を試みる
         if adjacent_nodes and random.random() < 0.4:
-            target_node = random.choice(adjacent_nodes) # 進軍先をランダムに決定
+            target_node = random.choice(adjacent_nodes)
             
-            # 💡 【衝突検知】移動先に「自分とは異なる勢力」がいるか厳密にチェック
-            # （プレイヤー、または自分とは違う色のAI部隊をすべて抽出）
+            # 【衝突検知】移動先に「自分とは異なる勢力」がいるか厳密にチェック
             enemy_units_in_node = [
                 {"id": uid, "data": u} for uid, u in st.session_state.units.items()
                 if u["location"] == target_node and u["owner"] != ai_owner
@@ -183,33 +237,33 @@ def run_ai_turn():
                 enemy_uid = active_enemy["id"]
                 e_unit = active_enemy["data"]
                 
-                # AIが仕掛けた側の戦闘情報をセッションに完全固定
-                # ※ Canvas側では player_uid が左側（防衛）、enemy_uid が右側（侵攻）として描画されます
+                # 戦藤情報をセッションに完全固定
                 st.session_state.battle_info = {
-                    "player_uid": enemy_uid,           # 防衛側（元々そのマスにいた部隊）
+                    "player_uid": enemy_uid,           # 防衛側
                     "enemy_uid": ai_uid,               # 攻撃側（攻めてきたAI部隊）
                     "player_unit_name": f"{e_unit['captain']['name']}隊({e_unit['owner']})",
                     "enemy_unit_name": f"{ai_unit['captain']['name']}隊({ai_owner})",
                     "target_node": target_node
                 }
                 
-                # 攻めてきたAI部隊の位置を進軍先（戦場）へ更新
+                # 攻めてきたAI部隊の位置を更新し、行動済みにする
                 st.session_state.units[ai_uid]["location"] = target_node
+                st.session_state.units[ai_uid]["moved"] = True
                 
-                # フェーズを戦場へ切り替え、ログを残して即座に画面を再描画
+                # フェーズを戦場へ切り替え
                 st.session_state.phase = "戦場フェーズ"
                 add_log(f"💥 【急報】{target_node} にて {ai_owner} の【{ai_unit['captain']['name']}隊】が侵攻！ "
                         f"待ち構える {e_unit['owner']} の【{e_unit['captain']['name']}隊】と激突、戦闘に入ります！")
                 st.rerun()
-                return  # 🚨 1つでも戦闘が発生したら、他のAIの移動処理は一旦中断してバトルを優先する
+                return  # 🚨 戦闘発生時は即離脱してCanvas画面を優先
                 
             else:
                 # ==========================================================
                 # 🕊️ パターンB：無人の領地（通常移動、または無血占領）
                 # ==========================================================
                 st.session_state.units[ai_uid]["location"] = target_node
+                st.session_state.units[ai_uid]["moved"] = True
                 
-                # 移動先がまだ自分の支配下でない領地なら、支配権を上書き（占領）
                 if st.session_state.nodes[target_node]["owner"] != ai_owner:
                     st.session_state.nodes[target_node]["owner"] = ai_owner
                     add_log(f"🚩 【AI領土拡大】{ai_owner} が無人の {target_node} を無血占領しました。")
@@ -219,7 +273,12 @@ def run_ai_turn():
                 st.rerun()
                 return
 
-    add_log("🤖 AI軍の作戦行動が完了しました。")
+    # 全てのAI部隊の移動チェックが終わったら、移動フラグをクリア
+    for u in st.session_state.units.values():
+        if "AI軍" in u["owner"]:
+            u["moved"] = False
+
+    add_log("🤖 AI軍の全作戦行動が完了しました。プレイヤーのターンに移ります。")
 def generate_improved_node_label(node_id, info):
     owner = info["owner"]
     owner_icon = "👤" if owner == "プレイヤー(赤)" else "🤖" if owner.startswith("AI") else "🏳️"
