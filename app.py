@@ -290,8 +290,11 @@ else:
             st.error(f"生存ターン数: {st.session_state.turn} ターン")
             
             st.write("---")
-            if st.button("🔄 もう一度世界に挑戦する（タイトルへ戻る）", use_container_width=True, type="primary"):
-                # ゲーム開始フラグを折ってリロード（最初からやり直せる）
+            # ゲームクリア、またはゲームオーバーの画面内にあるボタン処理を以下に差し替え
+            if st.button("🔄 もう一度最初からやり直す", use_container_width=True):
+                # セッション状態をすべてクリア
+                for key in list(st.session_state.keys()):
+                    del st.session_state[key]
                 st.session_state.game_started = False
                 st.rerun()
             st.stop() # 💡 これ以降の通常のマップやフェーズ画面を描画させずにここで止める！
@@ -462,15 +465,35 @@ else:
                 # 移動処理と行動済みロック
                 st.session_state.units[selected_unit_name]["location"] = target_loc
                 st.session_state.units[selected_unit_name]["moved"] = True
+                # 選択した領地にいる敵部隊をすべて抽出
+                target_node = target_loc
+                enemy_units_in_node = [
+                    {"id": uid, "data": u} for uid, u in st.session_state.units.items()
+                    if u["node"] == target_node and u["owner"] != "プレイヤー(赤)"
+                ]
                 
-                if enemy_units_at_dest:
-                    # 💡 敵がいるなら「戦場フェーズ」へ移行。対戦データをセット
-                    st.session_state.active_battle = {
-                        "player_unit_name": selected_unit_name,
-                        "enemy_unit_name": enemy_units_at_dest[0],
-                        "target_node": target_loc
+                if enemy_units_in_node:
+                    # 💡 【複数部隊対応】配列の先頭（1番目の部隊）だけを今回の戦闘相手にする
+                    active_enemy = enemy_units_in_node[0]
+                    enemy_uid = active_enemy["id"]
+                    e_unit = active_enemy["data"]
+                    
+                    # プレイヤーの選択部隊
+                    p_uid = st.session_state.selected_unit_name
+                    p_unit = st.session_state.units[p_uid]
+                    
+                    # 戦闘情報をセッションに保存
+                    st.session_state.battle_info = {
+                        "player_uid": p_uid,
+                        "enemy_uid": enemy_uid, # 1部隊のみロック
+                        "player_unit_name": f"{p_unit['captain']['name']}隊",
+                        "enemy_unit_name": f"{e_unit['captain']['name']}隊",
+                        "target_node": target_node
                     }
+                    
+                    # 戦場フェーズへ移行
                     st.session_state.phase = "戦場フェーズ"
+                    add_log(f"⚔️ {target_node} の {e_unit['captain']['name']}隊 に向かって進軍しました！")
                     st.rerun()
                 else:
                     # 中立・無人地なら即時塗り替え
@@ -735,30 +758,49 @@ else:
         col_w, col_l = st.columns(2)
         
         with col_w:
-            # 勝利確定ボタンが押された時のブロック内
-            if st.button("🏆 我軍の「勝利(WIN)」を確定して領地を占領", use_container_width=True):
-                add_log(f"⚔️【大勝利】{b_info['player_unit_name']}が{b_info['target_node']}を撃破！")
+           if st.button("🏆 我軍の勝利(WIN)を確定させる", use_container_width=True):
+                b_info = st.session_state.battle_info
+                target_node = b_info["target_node"]
+                enemy_uid = b_info["enemy_uid"]
+                player_uid = b_info["player_uid"]
                 
-                # 💡 アーサーのスキル判定：生存していれば兵数（count）を少し回復させる
+                # 1. 勝利したプレイヤー部隊の生存処理（アーサースキルなど）
+                p_unit = st.session_state.units[player_uid]
                 if p_unit["captain"].get("skill_id") == "avalon_bless":
-                    # 例：減った分の代わりに兵士が1〜2名生存・補充されるような演出
                     p_unit["count"] += 1
-                    add_log("🛡️ スキル発動【円卓の加護】により、傷ついた兵士が1名戦線に復帰しました。")
-                # 敵部隊の消滅と領地の占領
-                if b_info["enemy_unit_name"] in st.session_state.units:
-                    st.session_state.units[b_info["enemy_unit_name"]]["count"] = 0
-                st.session_state.nodes[b_info["target_node"]]["owner"] = "プレイヤー(赤)"
+                    add_log("🛡️ スキル【円卓の加護】で兵士が1名復帰。")
+                    
+                # 2. 💡 倒された敵の1部隊「だけ」をプールから削除
+                if enemy_uid in st.session_state.units:
+                    del st.session_state.units[enemy_uid]
+                
+                # 3. 💡 まだ同じマスに別の敵部隊が残っているかチェック
+                remaining_enemies = [
+                    u for u in st.session_state.units.values()
+                    if u["node"] == target_node and u["owner"] != "プレイヤー(赤)"
+                ]
+                
+                if len(remaining_enemies) > 0:
+                    # まだ残党がいる場合：マスは占領せず、ログで警告
+                    add_log(f"💥 撃破完了！しかし、{target_node} にはまだ敵の増援が {len(remaining_enemies)} 部隊残っています！")
+                else:
+                    # 敵が全滅した場合：ここで初めて領地をプレイヤーのものにする
+                    st.session_state.nodes[target_node]["owner"] = "プレイヤー(赤)"
+                    add_log(f"🚩 {target_node} の敵を完全に一掃し、領地を占領しました！")
                 
                 # 状態をリセットして侵攻フェーズへ
                 st.session_state.phase = "侵攻"
                 st.rerun()
                 
         with col_l:
-            if st.button("🏳️ 我軍の「敗北(LOSE)」を確定して部隊解散", use_container_width=True):
-                add_log(f"⚔️【惨敗】{b_info['player_unit_name']}は{b_info['target_node']}の戦闘で壊滅しました...")
-                # 自軍部隊の消滅
-                if b_info["player_unit_name"] in st.session_state.units:
-                    st.session_state.units[b_info["player_unit_name"]]["count"] = 0
+            if st.button("💀 我軍の敗北(LOSE)を受け入れる", use_container_width=True):
+                b_info = st.session_state.battle_info
+                player_uid = b_info["player_uid"]
+                
+                # プレイヤー部隊の消滅
+                if player_uid in st.session_state.units:
+                    add_log(f"😭 {st.session_state.units[player_uid]['captain']['name']}隊が全滅しました...")
+                    del st.session_state.units[player_uid]
                     
                 # 状態をリセットして侵攻フェーズへ
                 st.session_state.phase = "侵攻"
