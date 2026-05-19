@@ -682,7 +682,7 @@ else:
             add_log(f"📢 ターン {st.session_state.turn} が開始されました。")
             st.rerun()
 
-    # --- ⚔️ 6. 統合：戦場フェーズ（メッセージングによる100%自動帰還版） ---
+    # --- ⚔️ 6. 統合：戦場フェーズ（エラー回避型・完全自動帰還版） ---
     elif st.session_state.phase == "戦場フェーズ":
         # --- 1. 戦闘情報の安全な読み込みとガード処理 ---
         if "battle_info" not in st.session_state or not st.session_state.battle_info:
@@ -692,8 +692,8 @@ else:
 
         b_info = st.session_state.battle_info
         target_node = b_info["target_node"]
-        atk_uid = b_info["enemy_uid"]   # 攻撃側（攻めてきた部隊）のID
-        dfn_uid = b_info["player_uid"]  # 防衛側（待ち構えていた部隊）のID
+        atk_uid = b_info["enemy_uid"]   # 攻撃側
+        dfn_uid = b_info["player_uid"]  # 防衛側
 
         # セーフティ
         if atk_uid not in st.session_state.units or dfn_uid not in st.session_state.units:
@@ -704,6 +704,20 @@ else:
 
         atk_unit = st.session_state.units[atk_uid]
         dfn_unit = st.session_state.units[dfn_uid]
+
+        # 💡 URLクエリパラメータをチェック（安全にPython側で検知する構造に変形）
+        query_params = st.query_params
+        if "b_ended" in query_params:
+            final_atk_hp = max(0, float(query_params.get("atk_hp", 0)))
+            final_dfn_hp = max(0, float(query_params.get("dfn_hp", 0)))
+            
+            # 兵数カウントの更新 (1未満の端数は切り上げて1名生存とする)
+            st.session_state.units[atk_uid]["count"] = int(-(-final_atk_hp // 10))
+            st.session_state.units[dfn_uid]["count"] = int(-(-final_dfn_hp // 10))
+
+            # パラメータをクリアして次へ進む（リザルト画面の判定が通るようになる）
+            st.query_params.clear()
+            st.rerun()
 
         st.title("⚔️ リアルタイム交戦スクリーン（戦場フェーズ）")
         st.subheader(f"舞台: {target_node}")
@@ -725,7 +739,6 @@ else:
         dfn_color = SOLDIER_TYPES[dfn_soldier]["color"]
 
         # --- 3. リアルタイム勝敗判定 ---
-        # 現在の兵数データから、すでに決着がついているかを判定
         is_attacker_win = (dfn_unit["count"] <= 0 and atk_unit["count"] > 0)
         is_defender_win = (atk_unit["count"] <= 0 and dfn_unit["count"] > 0)
         is_draw = (atk_unit["count"] <= 0 and dfn_unit["count"] <= 0)
@@ -754,7 +767,7 @@ else:
             st.info("🎮 交戦中... 自動で決着がつくまで見守ってください。")
 
             # ==================================================================
-            # 🎨 HTML5 Canvas + JavaScript（安全な標準 postMessage 通信版）
+            # 🎨 HTML5 Canvas + JavaScript（iframeバリアを安全に超える仕様）
             # ==================================================================
             battle_canvas_html = f"""
             <div style="text-align: center; background: #222; padding: 15px; border-radius: 8px;">
@@ -905,33 +918,22 @@ else:
                     battleOver = true;
                     document.getElementById('statusText').innerText = '🏳️ 合戦終了！データを同期中...';
                     
-                    // ⭕ 安全なpostMessage経由で、親のStreamlitコンポーネントに直接データを引き渡す
-                    const resultData = {{
-                        battle_ended: true,
-                        atk_hp: Math.max(0, atk_hp),
-                        dfn_hp: Math.max(0, dfn_hp)
-                    }};
-                    window.parent.postMessage({{type: 'streamlit:setComponentValue', value: resultData}}, '*');
+                    // 💡 CORS（セキュリティ制限）を安全に回避し、親ウインドウのURLパラメータを正常に更新する絶対確実なハック
+                    const currentUrl = new URL(window.parent.location.href);
+                    currentUrl.searchParams.set("b_ended", "true");
+                    currentUrl.searchParams.set("atk_hp", Math.max(0, atk_hp).toString());
+                    currentUrl.searchParams.set("dfn_hp", Math.max(0, dfn_hp).toString());
+                    
+                    // 親ウィンドウ自体に強制リロードを指示
+                    window.parent.window.location.href = currentUrl.href;
                 }}
 
                 animate();
             </script>
             """
             
-            # ⭕ components.html の戻り値を「battle_data」という変数で受け取る
-            battle_data = components.html(battle_canvas_html, height=430)
-            
-            # ⭕ JavaScript側からデータ（battle_ended）が送られてきたら、Python側のデータを更新してリランする
-            if battle_data and battle_data.get("battle_ended"):
-                final_atk_hp = max(0, float(battle_data.get("atk_hp", 0)))
-                final_dfn_hp = max(0, float(battle_data.get("dfn_hp", 0)))
-                
-                # 兵数カウントの更新 (1未満の端数は切り上げて1名生存とする)
-                st.session_state.units[atk_uid]["count"] = int(-(-final_atk_hp // 10))
-                st.session_state.units[dfn_uid]["count"] = int(-(-final_dfn_hp // 10))
-                
-                st.rerun()
-                
+            # エラーになる変数代入（get()）をやめ、普通にHTMLとしてレンダリングするだけに修正
+            components.html(battle_canvas_html, height=430)
             st.stop()
             
         else:
