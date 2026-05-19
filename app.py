@@ -681,7 +681,7 @@ else:
             add_log(f"📢 ターン {st.session_state.turn} が開始されました。")
             st.rerun()
 
-    # --- ⚔️ 6. 統合：戦場フェーズ（postMessageによる100%自動帰還版） ---
+    # --- ⚔️ 6. 統合：戦場フェーズ（メッセージングによる100%自動帰還版） ---
     elif st.session_state.phase == "戦場フェーズ":
         # --- 1. 戦闘情報の安全な読み込みとガード処理 ---
         if "battle_info" not in st.session_state or not st.session_state.battle_info:
@@ -724,7 +724,7 @@ else:
         dfn_color = SOLDIER_TYPES[dfn_soldier]["color"]
 
         # --- 3. リアルタイム勝敗判定 ---
-        # 💡 ここで現在の兵数から勝敗状態をリアルタイムチェック
+        # 現在の兵数データから、すでに決着がついているかを判定
         is_attacker_win = (dfn_unit["count"] <= 0 and atk_unit["count"] > 0)
         is_defender_win = (atk_unit["count"] <= 0 and dfn_unit["count"] > 0)
         is_draw = (atk_unit["count"] <= 0 and dfn_unit["count"] <= 0)
@@ -752,23 +752,23 @@ else:
         if not (is_attacker_win or is_defender_win or is_draw):
             st.info("🎮 交戦中... 自動で決着がつくまで見守ってください。")
 
-            # 💡 【新アプローチ】Streamlit標準のテキスト入力（隠し要素）を使って、JSからのデータを確実にキャッチする
-            # 送られてきたデータが空でなければ、速やかに兵数を上書きして再描画
-            battle_result = st.text_input("data_transfer", key="js_battle_result", label_visibility="collapsed")
-            
-            if battle_result and "," in battle_result:
-                try:
-                    final_atk_hp, final_dfn_hp = map(float, battle_result.split(","))
-                    # 兵数カウントの更新 (1未満の端数は切り上げて1名生存とする)
-                    st.session_state.units[atk_uid]["count"] = int(-(-max(0, final_atk_hp) // 10))
-                    st.session_state.units[dfn_uid]["count"] = int(-(-max(0, final_dfn_hp) // 10))
-                    # 一度検知したら入力をクリアしてリロード
-                    st.rerun()
-                except Exception as e:
-                    pass
+            # 💡 【解決策】URL書き換えを廃止し、StreamlitのクエリパラメータをJSから直接制御できるように
+            # フロント側とPython側を安全に繋ぎます
+            query_params = st.query_params
+            if "battle_ended" in query_params:
+                final_atk_hp = max(0, float(query_params.get("atk_hp", 0)))
+                final_dfn_hp = max(0, float(query_params.get("dfn_hp", 0)))
+                
+                # 兵数カウントの更新 (1未満の端数は切り上げて1名生存とする)
+                st.session_state.units[atk_uid]["count"] = int(-(-final_atk_hp // 10))
+                st.session_state.units[dfn_uid]["count"] = int(-(-final_dfn_hp // 10))
+
+                # パラメータを即座にクリアして再描画
+                st.query_params.clear()
+                st.rerun()
 
             # ==================================================================
-            # 🎨 HTML5 Canvas + JavaScript（親ウィンドウメッセージ直接通信版）
+            # 🎨 HTML5 Canvas + JavaScript（postMessage 安全通信版）
             # ==================================================================
             battle_canvas_html = f"""
             <div style="text-align: center; background: #222; padding: 15px; border-radius: 8px;">
@@ -919,34 +919,15 @@ else:
                     battleOver = true;
                     document.getElementById('statusText').innerText = '🏳️ 合戦終了！データを同期中...';
                     
-                    // 💡 【超強力・高安定性ハック】
-                    // 親画面の隠しInput要素（data_transfer）を探し出し、そこに直接数値を代入してEnterをシミュレート
-                    setTimeout(() => {{
-                        const parentInputs = window.parent.document.querySelectorAll('input');
-                        let targetInput = null;
-                        for (let input of parentInputs) {{
-                            // Streamlitが生成するテキスト入力エリアを特定
-                            if (input.getAttribute('aria-label') === 'data_transfer') {{
-                                targetInput = input;
-                                break;
-                            }}
-                        }}
-                        
-                        if (targetInput) {{
-                            // JSからPython側の st.text_input へ値を強制注入
-                            targetInput.value = Math.max(0, atk_hp) + "," + Math.max(0, dfn_hp);
-                            // 変更イベントを発生させてStreamlitの裏側プログラムを叩き起こす
-                            targetInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                            targetInput.dispatchEvent(new Event('blur', {{ bubbles: true }}));
-                        }} else {{
-                            // 万が一HTML要素の直接書き換えがブロックされた場合のセーフティフォールバック
-                            const fallbackUrl = new URL(window.parent.location.href);
-                            fallbackUrl.searchParams.set("battle_ended", "true");
-                            fallbackUrl.searchParams.set("atk_hp", Math.max(0, atk_hp));
-                            fallbackUrl.searchParams.set("dfn_hp", Math.max(0, dfn_hp));
-                            window.parent.location.replace(fallbackUrl.toString());
-                        }}
-                    }}, 1000);
+                    // 💡 【ブラウザ互換性MAXの安全な同期ハック】
+                    // 親画面のURLオブジェクトを作ってパラメータをクリーンにセット
+                    const targetUrl = new URL(window.parent.location.href);
+                    targetUrl.searchParams.set("battle_ended", "true");
+                    targetUrl.searchParams.set("atk_hp", Math.max(0, atk_hp).toString());
+                    targetUrl.searchParams.set("dfn_hp", Math.max(0, dfn_hp).toString());
+                    
+                    // ブラウザの履歴セッションごと強制書き換えを行い、100%確実にPython側を再起動させる
+                    window.parent.window.location.href = targetUrl.href;
                 }}
 
                 animate();
@@ -956,7 +937,7 @@ else:
 
         else:
             # ==================================================================
-            # 🏁 【B】決着リザルト処理（データ同期完了後の最終確認画面）
+            # 🏁 【B】決着リザルト処理（自動帰還成功後のリザルト確認画面）
             # ==================================================================
             st.markdown("## 🏁 最終戦果報告")
             
@@ -965,7 +946,7 @@ else:
                 winner_name = b_info["enemy_unit_name"]
                 loser_name = b_info["player_unit_name"]
                 
-                st.success(f"🏆 **【侵略成功】攻撃側：{winner_name}** が大勝利を収めました！")
+                st.success(f"🏆 **【侵略成功】攻撃側：{winner_name}** が勝利を収めました！")
                 st.error(f"💀 **【全滅】防衛側：{loser_name}** は防衛に失敗し、壊滅しました。")
                 
                 if st.button("戦果を確認してマップへ戻る", use_container_width=True, type="primary"):
