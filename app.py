@@ -466,9 +466,9 @@ else:
             
                 # 💡 ここからはノードが確実に選択されている場合のみ実行される
                 if st.button("⚔️ この領地へ進軍（移動・戦闘開始）", use_container_width=True):
-                    target_node = st.session_state.selected_node  # 移動先の領地名
-                    p_uid = st.session_state.selected_my_unit     # 動かそうとしている自軍の部隊ID
-                    
+                    target_node = target_loc  # 移動先の領地名
+                    p_uid = selected_unit_name  # 動かそうとしている自軍の部隊ID
+
                     # 💡 安全対策：自軍の部隊も選択されているかチェック
                     if not p_uid or p_uid not in st.session_state.units:
                         st.error("💂‍♂️ 進軍させる自軍の部隊を選択してください。")
