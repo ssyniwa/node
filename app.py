@@ -339,7 +339,24 @@ def draw_map_improved():
         net.save_graph(path)
         with open(path, 'r', encoding='utf-8') as f: html_data = f.read()
     components.html(html_data, height=460)
+def safe_terminate_battle(atk_uid, dfn_uid, winner_uid=None):
+    """部隊データの安全な削除とフェーズ遷移を保証する関数"""
+    # 存在確認を行ってから削除する
+    if winner_uid == atk_uid: # 攻撃側勝利
+        if dfn_uid in st.session_state.units:
+            del st.session_state.units[dfn_uid]
+    elif winner_uid == dfn_uid: # 防衛側勝利
+        if atk_uid in st.session_state.units:
+            del st.session_state.units[atk_uid]
+    else: # 引き分け（両方削除）
+        if atk_uid in st.session_state.units: del st.session_state.units[atk_uid]
+        if dfn_uid in st.session_state.units: del st.session_state.units[dfn_uid]
 
+    # 状態の完全リセット
+    st.session_state.battle_info = None
+    st.session_state.battle_result = None
+    st.session_state.phase = "侵攻"
+    st.rerun()
 if "game_started" not in st.session_state:
     st.session_state.game_started = False
     reset_game()
@@ -954,57 +971,19 @@ else:
             # ==================================================================
             st.markdown("## 🏁 最終戦果報告")
             
+            # --- リザルト処理の修正例 ---
             if is_attacker_win:
-                winner_owner = atk_unit["owner"]
-                winner_name = b_info["enemy_unit_name"]
-                loser_name = b_info["player_unit_name"]
-                
-                st.success(f"🏆 **【侵略成功】攻撃側：{winner_name}** が勝利を収めました！")
-                st.error(f"💀 **【全滅】防衛側：{loser_name}** は防衛に失敗し、壊滅しました。")
-                
-                if st.button("戦果を確認してマップへ戻る", use_container_width=True, type="primary"):
-                    if dfn_uid in st.session_state.units:
-                        del st.session_state.units[dfn_uid] # 負けた防衛部隊を削除
-                    
-                    st.session_state.nodes[target_node]["owner"] = winner_owner
-                    add_log(f"💥 【戦果】{winner_name} が戦闘に勝利！ 【{target_node}】を完全に占領しました。")
-                    
-                    st.session_state.battle_info = None
-                    st.session_state.phase = "侵攻"
-                    st.session_state.battle_result = None
-                    st.rerun()
+                st.error(f"💀 **【全滅】防衛側：{dfn_unit.get('captain', {}).get('name')}** が撃破されました。")
+                if st.button("敗北報告を確認してマップへ戻る", type="primary"):
+                    safe_terminate_battle(atk_uid, dfn_uid, winner_uid=atk_uid)
 
             elif is_defender_win:
-                winner_owner = dfn_unit["owner"]
-                winner_name = b_info["player_unit_name"]
-                loser_name = b_info["enemy_unit_name"]
-                
-                st.success(f"🛡️ **【防衛成功】防衛側：{winner_name}** が領地を完全に死守しました！")
-                st.error(f"💀 **【全滅】攻撃側：{loser_name}** の侵略軍は返り討ちにあいました。")
-                
-                if st.button("防衛報告を確認してマップへ戻る", use_container_width=True, type="primary"):
-                    if winner_owner == "プレイヤー(赤)" and dfn_unit["captain"].get("skill_id") == "avalon_bless":
-                        st.session_state.units[dfn_uid]["count"] += 1
-                        add_log("🛡️ スキル【円卓の加護】が発動！負傷兵が1名復帰しました。")
-                    
-                    if atk_uid in st.session_state.units:
-                        del st.session_state.units[atk_uid] # 負けた攻撃部隊を削除
-                    
-                    add_log(f"🛡️ 【戦果】{winner_name} が見事に【{target_node}】の守備に成功しました。")
-                    
-                    st.session_state.battle_info = None
-                    st.session_state.phase = "侵攻"
-                    st.session_state.battle_result = None
-                    st.rerun()
+                st.success(f"🛡️ **【勝利】防衛側：{dfn_unit.get('captain', {}).get('name')}** が死守しました！")
+                if st.button("防衛報告を確認してマップへ戻る", type="primary"):
+                    # スキル処理などの追加ロジックはここに入れる
+                    safe_terminate_battle(atk_uid, dfn_uid, winner_uid=dfn_uid)
 
             elif is_draw:
-                st.warning("⚖️ **【相打ち】激戦の末、双方が全滅しました。**")
-                if st.button("凄惨な結末を確認してマップへ戻る", use_container_width=True):
-                    if atk_uid in st.session_state.units: del st.session_state.units[atk_uid]
-                    if dfn_uid in st.session_state.units: del st.session_state.units[dfn_uid]
-                    st.session_state.nodes[target_node]["owner"] = "中立"
-                    add_log(f"🪦 【戦果】{target_node} は相打ちとなり、領地は【中立】に戻りました。")
-                    st.session_state.battle_info = None
-                    st.session_state.phase = "侵攻"
-                    st.session_state.battle_result = None
-                    st.rerun()
+                st.warning("⚖️ **【相打ち】双方が全滅しました。**")
+                if st.button("結末を確認してマップへ戻る"):
+                    safe_terminate_battle(atk_uid, dfn_uid, winner_uid=None)
