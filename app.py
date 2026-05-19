@@ -463,9 +463,7 @@ else:
             
             # --- 侵攻・移動ボタンの処理 ---
             # 💡 安全対策：そもそもセッションに選択されたノードがない、または空の場合は処理を行わない
-            if "selected_node" not in st.session_state or not st.session_state.selected_node:
-                st.warning("🗺️ マップ上の領地をどれか一つ選択してください。")
-            else:
+            
                 # 💡 ここからはノードが確実に選択されている場合のみ実行される
                 if st.button("⚔️ この領地へ進軍（移動・戦闘開始）", use_container_width=True):
                     target_node = st.session_state.selected_node  # 移動先の領地名
