@@ -932,7 +932,7 @@ else:
                             const url = new URL(parentWin.location.href);
                             url.searchParams.set('battle_result', result);
                             parentWin.location.href = url.toString();
-                        } catch(e) {{
+                        }} catch(e) {{
                             console.error("Sync error:", e);
                             window.parent.location.reload();
                         }}
