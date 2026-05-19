@@ -133,9 +133,7 @@ def generate_random_map(num_nodes):
         
 
 
-# 初回起動時のみ実行
-if "gold" not in st.session_state:
-    reset_game()    
+   
 # --- 3. 共通ロジック ---
 def add_log(text):
     st.session_state.logs.insert(0, f"【T{st.session_state.turn}】{text}")
