@@ -64,8 +64,8 @@ def reset_game():
     }
     
     st.session_state.units = {}
-    
-    
+    # 💡 【重要】AI部隊の元データをセッション状態に確実に保存する
+    st.session_state.ai_unit_pool = AI_UNIT_POOL
 
     # 戦闘結果をJavaScriptから受け取るためのトリガー変数
     st.session_state.battle_result = None
@@ -169,13 +169,13 @@ def run_ai_turn():
                 if empty_my_nodes:
                     spawn_node = random.choice(empty_my_nodes)
                     
-                    # AIユニットプール（最初期に定義したもの）からランダムに1つの編成テンプレートを取得
-                    if "AI_UNIT_POOL" in globals() or "AI_UNIT_POOL" in locals():
-                        template = random.choice(AI_UNIT_POOL)
+                    # 💡 セッションに保存したプールから安全にランダム選出する
+                    if "ai_unit_pool" in st.session_state and st.session_state.ai_unit_pool:
+                        template = random.choice(st.session_state.ai_unit_pool)
                     else:
-                        # 万が一プールが見つからない場合のセーフティバックアップ
+                        # バックアップ用
                         template = {
-                            "captain": {"name": "AI汎用将軍", "atk": 12, "dfn": 12, "skill_id": "none", "skill_name": "なし", "skill_desc": ""},
+                            "captain": {"name": "AI汎用将軍", "skill_id": "none", "skill_name": "なし", "skill_desc": ""},
                             "soldier_type": "歩兵部隊",
                             "count": 5
                         }
