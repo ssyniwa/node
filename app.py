@@ -688,7 +688,7 @@ else:
             add_log(f"📢 ターン {st.session_state.turn} が開始されました。")
             st.rerun()
 
-    # --- ⚔️ 6. 統合：戦場フェーズ（JSボタン強制クリック型・完全自動帰還版） ---
+    # --- ⚔️ 6. 統合：戦場フェーズ（隠し入力バグ修正版） ---
     elif st.session_state.phase == "戦場フェーズ":
         # --- 1. 戦闘情報の安全な読み込みとガード処理 ---
         if "battle_info" not in st.session_state or not st.session_state.battle_info:
@@ -758,11 +758,18 @@ else:
         if not (is_attacker_win or is_defender_win or is_draw):
             st.info("🎮 交戦中... 自動で決着がつくまで見守ってください。")
 
-            # 🛠️ Python側であらかじめ「データ送信用」の隠し入力フィールドを用意
-            atk_hp_input = st.hidden_input(key="sync_atk_hp", value=str(atk_max_hp))
-            dfn_hp_input = st.hidden_input(key="sync_dfn_hp", value=str(dfn_max_hp))
+            # 🛠️ CSSと標準コンポーネントを組み合わせて「不可視のデータ同期窓」を作成
+            st.markdown("""
+                <style>
+                    div[data-testid="stTextInput"] { display: none !important; }
+                </style>
+            """, unsafe_allow_html=True)
 
-            # ⭕️ このボタンがJSから強制的にクリックされることで、Pythonに戦闘終了を100%通知する
+            # 画面上は見えないが、JS側から値を流し込める隠しインプット（エラー回避版）
+            st.text_input("sync_atk", value=str(atk_max_hp), key="sync_atk_hp", label_visibility="collapsed")
+            st.text_input("sync_dfn", value=str(dfn_max_hp), key="sync_dfn_hp", label_visibility="collapsed")
+
+            # ⭕️ このボタンが戦闘終了時にJSから強制クリックされ、Pythonに通知が届く
             if st.button("🔄 戦闘データを同期してリザルトへ進む", key="js_trigger_btn", use_container_width=True):
                 final_atk_hp = max(0, float(st.session_state.get("sync_atk_hp", 0)))
                 final_dfn_hp = max(0, float(st.session_state.get("sync_dfn_hp", 0)))
@@ -917,38 +924,35 @@ else:
                     battleOver = true;
                     document.getElementById('statusText').innerText = '🏳️ 合戦終了！データを同期中...';
                     
-                    // ⭕️ 親のStreamlitドキュメントから、Python側が生成した隠し要素とボタンを検索して数値を埋め込み、強制クリックする
                     setTimeout(() => {{
                         try {{
                             const parentDoc = window.parent.document;
                             
-                            // 隠しインプットに値を設定
+                            // 💡 親画面(Streamlit)の入力ボックスを探してHPの最終結果を流し込む
                             const inputs = parentDoc.querySelectorAll('input[type="text"]');
                             inputs.forEach(input => {{
-                                // Streamlitのインプット要素を見つけ出すハック
-                                if(input.id && input.id.includes("sync_atk_hp")) {{
+                                // キーのハッシュ名が含まれるインプットを特定
+                                if(input.ariaLabel && input.ariaLabel.includes("sync_atk")) {{
                                     input.value = Math.max(0, atk_hp).toString();
                                     input.dispatchEvent(new Event('input', {{ bubbles: true }}));
                                 }}
-                                if(input.id && input.id.includes("sync_dfn_hp")) {{
+                                if(input.ariaLabel && input.ariaLabel.includes("sync_dfn")) {{
                                     input.value = Math.max(0, dfn_hp).toString();
                                     input.dispatchEvent(new Event('input', {{ bubbles: true }}));
                                 }}
                             }});
 
-                            // 同期ボタンを強制クリック
+                            // 同期進行ボタンを強制自動クリック
                             const buttons = parentDoc.querySelectorAll('button');
-                            let clicked = false;
                             buttons.forEach(btn => {{
                                 if (btn.innerText && btn.innerText.includes("戦闘データを同期してリザルトへ進む")) {{
                                     btn.click();
-                                    clicked = true;
                                 }}
                             }});
                         }} catch(e) {{
                             console.error("Sync error:", e);
                         }}
-                    }}, 500);
+                    }}, 600);
                 }}
 
                 animate();
