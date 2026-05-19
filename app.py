@@ -682,7 +682,7 @@ else:
             add_log(f"📢 ターン {st.session_state.turn} が開始されました。")
             st.rerun()
 
-    # --- ⚔️ 6. 統合：戦場フェーズ（双方向通信・完全自動帰還版） ---
+    # --- ⚔️ 6. 統合：戦場フェーズ（構文エラー修正版） ---
     elif st.session_state.phase == "戦場フェーズ":
         # --- 1. 戦闘情報の安全な読み込みとガード処理 ---
         if "battle_info" not in st.session_state or not st.session_state.battle_info:
@@ -753,7 +753,7 @@ else:
             st.info("🎮 交戦中... 自動で決着がつくまで見守ってください。")
 
             # ==================================================================
-            # 🎨 HTML5 Canvas + JavaScript（安全な標準 postMessage 通信版）
+            # 🎨 HTML5 Canvas + JavaScript（波括弧のエスケープ適用版）
             # ==================================================================
             battle_canvas_html = f"""
             <div style="text-align: center; background: #222; padding: 15px; border-radius: 8px;">
@@ -897,31 +897,27 @@ else:
                     battleOver = true;
                     document.getElementById('statusText').innerText = '🏳️ 合戦終了！データを同期中...';
                     
-                    // 💡 iframeの壁を越えて、親のStreamlit(後述のレシーバー)へデータを安全に送るメッセージ通信
-                    window.parent.postMessage({
+                    // ⭕ 波括弧をダブルにする（{{ }}）ことで、Pythonのf文字列エラーを完全に回避！
+                    window.parent.postMessage({{
                         type: 'battle_result_sync',
                         atk_hp: Math.max(0, atk_hp),
                         dfn_hp: Math.max(0, dfn_hp)
-                    }, '*');
+                    }}, '*');
                 }}
 
                 animate();
             </script>
             """
             
-            # 🎨 Canvasを描画
             components.html(battle_canvas_html, height=430)
 
             # ==================================================================
-            # 📡 データの超安全レシーバー（JavaScriptからの入力を監視する見えない入力ボックス）
+            # 📡 データの超安全レシーバー（波括弧のエスケープ適用版）
             # ==================================================================
-            # JSから親ウィンドウに送られたメッセージをPythonのセッション情報に落とし込むための軽量スクリプト
             receiver_html = """
             <script>
                 window.addEventListener('message', function(event) {
                     if (event.data && event.data.type === 'battle_result_sync') {
-                        // 親(Streamlit)のクエリパラメータを書き換えるのではなく、安全な標準フォームイベントを擬似発火
-                        const baseUrl = window.parent.location.origin + window.parent.location.pathname;
                         const targetUrl = btoa(JSON.stringify(event.data));
                         window.parent.location.search = '?bdata=' + encodeURIComponent(targetUrl);
                     }
@@ -930,7 +926,7 @@ else:
             """
             components.html(receiver_html, height=0)
 
-            # 💡 URLに付与された暗号化戦闘結果データをPython側で安全に回収
+            # URLに付与されたデータをPython側で安全に回収
             if "bdata" in st.query_params:
                 import base64
                 import json
