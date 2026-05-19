@@ -356,7 +356,7 @@ else:
                 if has_mituba:
                     earned += 20
                     add_log("🍀 スキル発動【三つ葉の幸運】により、今ターンの収入が +20G されました！")
-                st.session_state.country_data[country]["economy"] += earned
+                st.session_state.country_data[country]["gold"] += earned
             for u_name, u_info in st.session_state.units.items():
                 if u_info["owner"] == "プレイヤー(赤)": st.session_state.units[u_name]["moved"] = False
             st.session_state.phase = "内政"
