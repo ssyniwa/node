@@ -682,7 +682,7 @@ else:
             add_log(f"📢 ターン {st.session_state.turn} が開始されました。")
             st.rerun()
 
-    # --- ⚔️ 6. 統合：戦場フェーズ（構文エラー修正版） ---
+    # --- ⚔️ 6. 統合：戦場フェーズ（JSボタン強制クリック型・完全自動帰還版） ---
     elif st.session_state.phase == "戦場フェーズ":
         # --- 1. 戦闘情報の安全な読み込みとガード処理 ---
         if "battle_info" not in st.session_state or not st.session_state.battle_info:
@@ -752,8 +752,22 @@ else:
         if not (is_attacker_win or is_defender_win or is_draw):
             st.info("🎮 交戦中... 自動で決着がつくまで見守ってください。")
 
+            # 🛠️ Python側であらかじめ「データ送信用」の隠し入力フィールドを用意
+            atk_hp_input = st.hidden_input(key="sync_atk_hp", value=str(atk_max_hp))
+            dfn_hp_input = st.hidden_input(key="sync_dfn_hp", value=str(dfn_max_hp))
+
+            # ⭕️ このボタンがJSから強制的にクリックされることで、Pythonに戦闘終了を100%通知する
+            if st.button("🔄 戦闘データを同期してリザルトへ進む", key="js_trigger_btn", use_container_width=True):
+                final_atk_hp = max(0, float(st.session_state.get("sync_atk_hp", 0)))
+                final_dfn_hp = max(0, float(st.session_state.get("sync_dfn_hp", 0)))
+                
+                # 兵数カウントの更新 (1未満の端数は切り上げて1名生存とする)
+                st.session_state.units[atk_uid]["count"] = int(-(-final_atk_hp // 10))
+                st.session_state.units[dfn_uid]["count"] = int(-(-final_dfn_hp // 10))
+                st.rerun()
+
             # ==================================================================
-            # 🎨 HTML5 Canvas + JavaScript（波括弧のエスケープ適用版）
+            # 🎨 HTML5 Canvas + JavaScript（ボタン強制クリック型）
             # ==================================================================
             battle_canvas_html = f"""
             <div style="text-align: center; background: #222; padding: 15px; border-radius: 8px;">
@@ -897,53 +911,44 @@ else:
                     battleOver = true;
                     document.getElementById('statusText').innerText = '🏳️ 合戦終了！データを同期中...';
                     
-                    // ⭕ 波括弧をダブルにする（{{ }}）ことで、Pythonのf文字列エラーを完全に回避！
-                    window.parent.postMessage({{
-                        type: 'battle_result_sync',
-                        atk_hp: Math.max(0, atk_hp),
-                        dfn_hp: Math.max(0, dfn_hp)
-                    }}, '*');
+                    // ⭕️ 親のStreamlitドキュメントから、Python側が生成した隠し要素とボタンを検索して数値を埋め込み、強制クリックする
+                    setTimeout(() => {{
+                        try {{
+                            const parentDoc = window.parent.document;
+                            
+                            // 隠しインプットに値を設定
+                            const inputs = parentDoc.querySelectorAll('input[type="text"]');
+                            inputs.forEach(input => {{
+                                // Streamlitのインプット要素を見つけ出すハック
+                                if(input.id && input.id.includes("sync_atk_hp")) {{
+                                    input.value = Math.max(0, atk_hp).toString();
+                                    input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                                }}
+                                if(input.id && input.id.includes("sync_dfn_hp")) {{
+                                    input.value = Math.max(0, dfn_hp).toString();
+                                    input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                                }}
+                            }});
+
+                            // 同期ボタンを強制クリック
+                            const buttons = parentDoc.querySelectorAll('button');
+                            let clicked = false;
+                            buttons.forEach(btn => {{
+                                if (btn.innerText && btn.innerText.includes("戦闘データを同期してリザルトへ進む")) {{
+                                    btn.click();
+                                    clicked = true;
+                                }}
+                            }});
+                        }} catch(e) {{
+                            console.error("Sync error:", e);
+                        }}
+                    }}, 500);
                 }}
 
                 animate();
             </script>
             """
-            
             components.html(battle_canvas_html, height=430)
-
-            # ==================================================================
-            # 📡 データの超安全レシーバー（波括弧のエスケープ適用版）
-            # ==================================================================
-            receiver_html = """
-            <script>
-                window.addEventListener('message', function(event) {
-                    if (event.data && event.data.type === 'battle_result_sync') {
-                        const targetUrl = btoa(JSON.stringify(event.data));
-                        window.parent.location.search = '?bdata=' + encodeURIComponent(targetUrl);
-                    }
-                });
-            </script>
-            """
-            components.html(receiver_html, height=0)
-
-            # URLに付与されたデータをPython側で安全に回収
-            if "bdata" in st.query_params:
-                import base64
-                import json
-                try:
-                    raw_data = json.loads(base64.b64decode(st.query_params["bdata"]).decode("utf-8"))
-                    final_atk_hp = float(raw_data.get("atk_hp", 0))
-                    final_dfn_hp = float(raw_data.get("dfn_hp", 0))
-                    
-                    # 兵数カウントの更新 (1未満の端数は切り上げて1名生存とする)
-                    st.session_state.units[atk_uid]["count"] = int(-(-final_atk_hp // 10))
-                    st.session_state.units[dfn_uid]["count"] = int(-(-final_dfn_hp // 10))
-                except:
-                    pass
-
-                st.query_params.clear()
-                st.rerun()
-
             st.stop()
             
         else:
