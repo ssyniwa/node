@@ -867,7 +867,7 @@ else:
                 # 3. 💡 まだ同じマスに別の敵部隊が残っているかチェック
                 remaining_enemies = [
                     u for u in st.session_state.units.values()
-                    if u["node"] == target_node and u["owner"] != "プレイヤー(赤)"
+                    if u["location"] == target_node and u["owner"] != "プレイヤー(赤)"
                 ]
                 
                 if len(remaining_enemies) > 0:
