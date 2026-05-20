@@ -413,7 +413,7 @@ else:
             if st.button("🔄 もう一度最初からやり直す", use_container_width=True):
                 # セッション状態をすべてクリア
                 reset_game() # 💡 安全に初期化
-                
+                st.rerun()
             st.stop() # 💡 これ以降の通常のマップやフェーズ画面を描画させずにここで止める！
 
         # 条件B：プレイヤーの領地数が全領地数と等しくなった（中立も敵もゼロ） ➡️ 【ゲームクリア】
@@ -428,6 +428,7 @@ else:
             st.write("---")
             if st.button("🗺️ 新たな覇道へ（別の規模で遊ぶ）", use_container_width=True, type="primary"):
                 reset_game() # 💡 安全に初期化
+                st.rerun()
             st.stop() # 💡 これ以降の通常のマップやフェーズ画面を描画させずにここで止める！
         # --- 1. サイドバー領域（ターン数、現在のフェーズ、現在の軍資金などのメタ情報） ---
         with st.sidebar:
