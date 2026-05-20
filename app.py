@@ -144,6 +144,9 @@ def run_ai_turn():
     COLORSの定義（"AI(青)", "AI(緑)"）に完全準拠しています。
     """
     add_log("🤖 AI軍のターンが開始されました。軍事戦略を立案中...")
+    # まだこのターンのAI処理が終わっていない場合のみ計算を行う（無限リラン防止）
+    if "ai_processed_this_turn" not in st.session_state:
+        st.session_state.ai_processed_this_turn = False
     # 毎ターン開始時に、全既存部隊の移動フラグをリセット
     for uid in st.session_state.units:
         if st.session_state.units[uid]["owner"] == "AI(青)" or st.session_state.units[uid]["owner"] == "AI(緑)":
@@ -153,7 +156,7 @@ def run_ai_turn():
     # -------------------------------------------------------------------------
     # 💡 COLORSのキー名と完全に一致させました
     ai_factions = ["AI(青)", "AI(緑)"]
-    
+    battle_triggered = False
     for faction in ai_factions:
         # このAI勢力が支配している領地をリストアップ
         my_nodes = [nid for nid, n in st.session_state.nodes.items() if n["owner"] == faction]
@@ -259,6 +262,7 @@ def run_ai_turn():
                 st.session_state.phase = "戦場フェーズ"
                 add_log(f"💥 【急報】{target_node} にて {ai_owner} の【{ai_unit['captain']['name']}隊】が侵攻！ "
                         f"待ち構える {e_unit['owner']} の【{e_unit['captain']['name']}隊】と激突、戦闘に入ります！")
+                battle_triggered = True
                 st.rerun()
                 return 
                 
@@ -278,17 +282,40 @@ def run_ai_turn():
                 
                 # 💡 【重要】ここではリターンせず、次のAI部隊の行動処理へループを継続させる
                 continue
-
+        # 戦闘が起きなければ、AIの処理は完了フラグを立てる
+        if not battle_triggered:
+            st.session_state.ai_processed_this_turn = True
     # 平和にAIターンが終了した場合のクリーンアップ
     _cleanup_ai_flags()
     add_log("🤖 AI軍の全作戦行動が完了しました。次のターン（資金確保フェーズ）に移ります。")
     
-    # 💡 【重要】AIターン終了時にフェーズを戻し、ターンを進める処理を追加
-    st.session_state.turn += 1
-    # 💰 次のターンの開始フェーズ（資金確保など）へ移行させる
-    st.session_state.phase = "資金確保"
-    st.session_state.units[ai_uid]["moved"] = False # 最後の部隊も確実に行動済みにする
-    st.rerun()
+    # 🟢 手動進むボタン
+    if st.button("👉 次のターン（資金確保）へ進む", use_container_width=True, type="primary"):
+        st.session_state.turn += 1
+        st.session_state.phase = "資金確保"
+        if "ai_processed_this_turn" in st.session_state:
+            del st.session_state.ai_processed_this_turn
+        st.session_state.units[ai_uid]["moved"] = False # 最後の部隊も確実に行動済みにする
+        st.rerun()
+    # 🟢 JavaScriptによる「1.5秒後に自動クリック（リラン）」の埋め込み（これで静止バグを完全解消します）
+    components.html(
+        """
+        <script>
+            setTimeout(function() {
+                // 親ウィンドウ（Streamlit）のボタンを探して自動クリックさせる
+                const buttons = window.parent.document.querySelectorAll("button");
+                for (let btn of buttons) {
+                    if (btn.innerText.includes("次のターン（資金確保）へ進む")) {
+                        btn.click();
+                        break;
+                    }
+                }
+            }, 1500); // 1.5秒後に自動で次のターンへ進む
+        </script>
+        """,
+        height=0,
+    )
+
 
 def _cleanup_ai_flags():
     """AIターンの終了時に、プレイヤー以外の全部隊のフラグを一括リフレッシュ"""
