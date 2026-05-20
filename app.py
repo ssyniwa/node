@@ -353,8 +353,8 @@ def safe_terminate_battle(atk_uid, dfn_uid, winner_uid=None):
         if dfn_uid in st.session_state.units: del st.session_state.units[dfn_uid]
 
     # 状態の完全リセット
+    st.query_params.clear()
     st.session_state.battle_info = None
-    st.session_state.battle_result = None
     st.session_state.phase = "侵攻"
     st.rerun()
 if "game_started" not in st.session_state:
@@ -705,7 +705,7 @@ else:
             add_log(f"📢 ターン {st.session_state.turn} が開始されました。")
             st.rerun()
 
-    # --- ⚔️ 6. 統合：戦場フェーズ（暗転・即戻りバグ完全修正版） ---
+    # --- ⚔️ 6. 統合：戦場フェーズ（結果表示バグ完全修正版） ---
     elif st.session_state.phase == "戦場フェーズ":
         # --- 1. 戦闘情報の安全な読み込みとガード処理 ---
         if "battle_info" not in st.session_state or not st.session_state.battle_info:
@@ -718,7 +718,7 @@ else:
         atk_uid = b_info["enemy_uid"]   # 攻撃側
         dfn_uid = b_info["player_uid"]  # 防衛側
 
-        # セーフティ
+        # セーフティ：部隊の生存確認
         if atk_uid not in st.session_state.units or dfn_uid not in st.session_state.units:
             st.warning("⚠️ 戦闘を継続できない部隊データを確認しました。戦闘を終了します。")
             st.session_state.battle_info = None
@@ -766,19 +766,16 @@ else:
             st.markdown(f"⚡ **スキル: {atk_unit['captain'].get('skill_name', 'なし')}**")
             st.write(f"兵種: **{atk_soldier}** (x{atk_unit['count']})")
 
-        # --- 3. JavaScript側と連動する状態管理用テキスト入力 ---
-        if "js_battle_result" not in st.session_state:
-            st.session_state.js_battle_result = ""
+        # --- 3. URLクエリパラメータから勝敗シグナルを取得 ---
+        query_params = st.query_params
+        battle_result_signal = query_params.get("battle_result", None)
 
-        # JavaScriptから値を叩き込むための隠し入力コンポーネント
-        js_bridge = st.text_input("sync_state", key="js_bridge_input", value=st.session_state.js_battle_result, label_visibility="collapsed")
-
-        # --- 4. メインコンテンツ：戦闘中 Canvas 描画 or 決着リザルト ---
-        if js_bridge == "":
+        # --- 4. メインコンテンツの分岐：交戦中 Canvas か リザルト表示か ---
+        if battle_result_signal is None:
             st.info("🎮 交戦中... 自動で決着がつくと下に結果が表示されます。")
 
             # ==================================================================
-            # 🎨 HTML5 Canvas + JavaScript（即座リロードしない安全版）
+            # 🎨 HTML5 Canvas + JavaScript（確実なURLパラメータ付与方式）
             # ==================================================================
             battle_canvas_html = f"""
             <div style="text-align: center; background: #222; padding: 15px; border-radius: 8px;">
@@ -861,14 +858,14 @@ else:
                         if(b.side === 'dfn' && Math.abs(b.x - atk_x) <= 30) {{
                             atk_hp -= dfn_atk_val * (0.8 + Math.random()*0.4);
                             bullets.splice(i, 1);
-                            if(atk_hp <= 0) {{ endBattle('dfn_win'); break; }}
+                            if(atk_hp <= 0) {{ endBattle('atk_lose'); break; }} // 攻撃側死亡＝防衛勝利
                             continue;
                         }}
                         
                         if(b.side === 'atk' && Math.abs(b.x - dfn_x) <= 30) {{
                             dfn_hp -= atk_atk_val * (0.8 + Math.random()*0.4);
                             bullets.splice(i, 1);
-                            if(dfn_hp <= 0) {{ endBattle('atk_win'); break; }}
+                            if(dfn_hp <= 0) {{ endBattle('atk_win'); break; }}  // 防衛側死亡＝攻撃勝利
                             continue;
                         }}
                     }}
@@ -880,29 +877,12 @@ else:
                     battleOver = true;
                     document.getElementById('statusText').innerText = '🏳️ 合戦決着！結果を反映中...';
                     
-                    // 💡 親ウィンドウのリロードを完全に廃止。隠しInput経由で安全にStreamlitに値を届ける
+                    // 💡 URLに直接パラメータを載せて親画面に確実に伝える
                     setTimeout(() => {{
-                        const parentDoc = window.parent.document;
-                        const inputs = parentDoc.querySelectorAll('input');
-                        let targetInput = null;
-                        
-                        inputs.forEach(input => {{
-                            // クラス名や位置からStreamlitのText_inputを探す
-                            if(input.getAttribute('aria-label') === 'sync_state' || input.id && input.id.includes('js_bridge_input')) {{
-                                targetInput = input;
-                            }}
-                        }});
-                        
-                        if(!targetInput && inputs.length > 0) {{
-                            targetInput = inputs[0]; // フォールバック
-                        }}
-
-                        if (targetInput) {{
-                            targetInput.value = result;
-                            targetInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                            targetInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                        }}
-                    }}, 300);
+                        const currentUrl = new URL(window.parent.location.href);
+                        currentUrl.searchParams.set('battle_result', result);
+                        window.parent.location.href = currentUrl.toString();
+                    }}, 500);
                 }}
 
                 animate();
@@ -912,12 +892,12 @@ else:
             
         else:
             # ==================================================================
-            # 🏁 決着リザルト画面（ここでしっかりと立ち止まります）
+            # 🏁 決着リザルト表示画面（パラメータ検知によりここで確実にストップ）
             # ==================================================================
             st.header("📋 合戦最終戦果報告")
-            
-            # js_bridge に格納された勝敗データに基づいて条件分岐
-            if js_bridge == "atk_win":
+
+            # battle_result_signal に格納された勝敗データに基づいて条件分岐
+            if battle_result_signal == "atk_win":
                 winner_owner = atk_unit["owner"]
                 winner_name = b_info["enemy_unit_name"]
                 loser_name = b_info["player_unit_name"]
@@ -932,7 +912,7 @@ else:
                     add_log(f"⚔️ 【占領】{target_node} が {winner_name} に占領されました。")
                     safe_terminate_battle(atk_uid, dfn_uid, winner_uid=atk_uid)
 
-            elif js_bridge == "dfn_win":
+            elif battle_result_signal == "dfn_win":
                 winner_owner = dfn_unit["owner"]
                 winner_name = b_info["player_unit_name"]
                 loser_name = b_info["enemy_unit_name"]
