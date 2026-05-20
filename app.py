@@ -300,7 +300,7 @@ def run_ai_turn():
         st.session_state.phase = "資金確保"
         if "ai_processed_this_turn" in st.session_state:
             del st.session_state.ai_processed_this_turn
-        st.session_state.units[ai_uid]["moved"] = False # 最後の部隊も確実に行動済みにする
+         # 最後の部隊も確実に行動済みにする
         st.rerun()
     # 🟢 JavaScriptによる「1.5秒後に自動クリック（リラン）」の埋め込み（これで静止バグを完全解消します）
     components.html(
