@@ -353,7 +353,7 @@ def safe_terminate_battle(atk_uid, dfn_uid, winner_uid=None):
         if dfn_uid in st.session_state.units: del st.session_state.units[dfn_uid]
 
     # 状態の完全リセット
-    st.session_state.js_battle_result = ""
+    st.query_params.clear()
     st.session_state.battle_info = None
     st.session_state.phase = "侵攻"
     st.rerun()
@@ -705,7 +705,7 @@ else:
             add_log(f"📢 ターン {st.session_state.turn} が開始されました。")
             st.rerun()
 
-    # --- ⚔️ 6. 統合：戦場フェーズ（結果フリーズバグ完全修正版） ---
+    # --- ⚔️ 6. 統合：戦場フェーズ（結果フリーズ完全修正版） ---
     elif st.session_state.phase == "戦場フェーズ":
         # --- 1. 戦闘情報の安全な読み込みとガード処理 ---
         if "battle_info" not in st.session_state or not st.session_state.battle_info:
@@ -718,7 +718,7 @@ else:
         atk_uid = b_info["enemy_uid"]   # 攻撃側
         dfn_uid = b_info["player_uid"]  # 防衛側
 
-        # セーフティ
+        # セーフティ：部隊の生存確認
         if atk_uid not in st.session_state.units or dfn_uid not in st.session_state.units:
             st.warning("⚠️ 戦闘を継続できない部隊データを確認しました。戦闘を終了します。")
             st.session_state.battle_info = None
@@ -728,10 +728,15 @@ else:
         atk_unit = st.session_state.units[atk_uid]
         dfn_unit = st.session_state.units[dfn_uid]
 
+        # --- 2. クエリパラメータ（勝敗シグナル）のチェック ---
+        # 💡 JavaScript側から送られた勝敗を最優先で検知し、状態をロックする
+        query_params = st.query_params
+        battle_result_signal = query_params.get("battle_result", None)
+
         st.title("⚔️ リアルタイム交戦スクリーン（戦場フェーズ）")
         st.subheader(f"舞台: {target_node}")
 
-        # --- 2. 戦闘データ抽出 ---
+        # 戦闘データの抽出
         atk_soldier = atk_unit["soldier_type"]
         dfn_soldier = dfn_unit["soldier_type"]
 
@@ -766,28 +771,12 @@ else:
             st.markdown(f"⚡ **スキル: {atk_unit['captain'].get('skill_name', 'なし')}**")
             st.write(f"兵種: **{atk_soldier}** (x{atk_unit['count']})")
 
-        # --- 3. JavaScript側と完全に同期する状態管理用ブリッジ ---
-        if "js_battle_result" not in st.session_state:
-            st.session_state.js_battle_result = ""
-
-        # セッション状態から現在の結果を取得
-        battle_result_signal = st.session_state.js_battle_result
-
-        # --- 4. メインコンテンツ：戦闘中 Canvas 描画 or 決着リザルト ---
-        if battle_result_signal == "":
+        # --- 3. メインコンテンツの分岐：交戦中 Canvas か リザルト表示か ---
+        if battle_result_signal is None:
             st.info("🎮 交戦中... 自動で決着がつくと下に結果が表示されます。")
 
-            # ユーザーに隠した状態で入力を同期させるコンポーネント (識別用の型破りな属性を配置)
-            st.text_input(
-                "sync_state", 
-                key="js_bridge_input", 
-                value="", 
-                label_visibility="collapsed",
-                placeholder="battle_bridge_marker"
-            )
-
             # ==================================================================
-            # 🎨 HTML5 Canvas + JavaScript（強力な親DOM書き込み方式）
+            # 🎨 HTML5 Canvas + JavaScript（確実なURLパラメータ最上位リダイレクト方式）
             # ==================================================================
             battle_canvas_html = f"""
             <div style="text-align: center; background: #222; padding: 15px; border-radius: 8px;">
@@ -870,14 +859,14 @@ else:
                         if(b.side === 'dfn' && Math.abs(b.x - atk_x) <= 30) {{
                             atk_hp -= dfn_atk_val * (0.8 + Math.random()*0.4);
                             bullets.splice(i, 1);
-                            if(atk_hp <= 0) {{ endBattle('dfn_win'); break; }}
+                            if(atk_hp <= 0) {{ endBattle('dfn_win'); break; }} // 攻撃側HPが0＝防衛側勝利
                             continue;
                         }}
                         
                         if(b.side === 'atk' && Math.abs(b.x - dfn_x) <= 30) {{
                             dfn_hp -= atk_atk_val * (0.8 + Math.random()*0.4);
                             bullets.splice(i, 1);
-                            if(dfn_hp <= 0) {{ endBattle('atk_win'); break; }}
+                            if(dfn_hp <= 0) {{ endBattle('atk_win'); break; }}  // 防衛側HPが0＝攻撃側勝利
                             continue;
                         }}
                     }}
@@ -889,45 +878,23 @@ else:
                     battleOver = true;
                     document.getElementById('statusText').innerText = '🏳️ 合戦決着！結果を反映中...';
                     
-                    // 💡 セキュリティ制限を迂回し、Streamlitの最上部DOMからInputを探し出して直接同期させる
+                    // 💡 iframeのセキュリティ制限を受けない、最も安全な最上位（親）ウィンドウのURL書き換えコード
                     setTimeout(() => {{
-                        let mainDoc = window.parent.document;
-                        let targetInput = null;
-                        
-                        // placeholder属性などを元に、全階層のInputから確実にブリッジ用のインプットを特定
-                        let inputs = mainDoc.getElementsByTagName('input');
-                        for(let i=0; i<inputs.length; i++) {{
-                            if(inputs[i].placeholder === "battle_bridge_marker") {{
-                                targetInput = inputs[i];
-                                break;
-                            }}
-                        }}
-                        
-                        if (targetInput) {{
-                            // 値をセットし、Streamlit側に「変更イベント」を強制通知して即座にPythonを動かす
-                            targetInput.value = result;
-                            targetInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                            targetInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                        }} else {{
-                            // 万が一見つからない場合はフォールバックとしてシッションの即時反映トリガーを引く
-                            console.error("Bridge input not found.");
-                        }}
-                    }}, 300);
+                        const topWindow = window.top || window.parent || window;
+                        const currentUrl = new URL(topWindow.location.href);
+                        currentUrl.searchParams.set('battle_result', result);
+                        topWindow.location.href = currentUrl.toString();
+                    }}, 400);
                 }}
 
                 animate();
             </script>
             """
             components.html(battle_canvas_html, height=430)
-
-            # 💡 【重要】隠しテキスト入力にJavaScriptから値が送られてきた場合、即座にセッション状態を固定する
-            if st.session_state.js_bridge_input != "":
-                st.session_state.js_battle_result = st.session_state.js_bridge_input
-                st.rerun()
             
         else:
             # ==================================================================
-            # 🏁 決着リザルト画面（同期された値に基づいて綺麗に表示）
+            # 🏁 決着リザルト画面（クエリパラメータがある限り、ここが固定表示されます）
             # ==================================================================
             st.header("📋 合戦最終戦果報告")
 
