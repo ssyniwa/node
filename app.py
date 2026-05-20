@@ -947,9 +947,8 @@ else:
                 if st.button("凄惨な結末を確認してマップへ戻る", use_container_width=True, type="secondary"):
                     
                     
-                    # 領地を誰のものでもない「中立」に戻す
-                    st.session_state.nodes[target_node]["owner"] = "中立"
-                    add_log(f"⚖️ 【相打ち】{target_node} での戦闘は双方が全滅し、中立地帯になりました。")
+                    
+                    add_log(f"⚖️ 【相打ち】{target_node} での戦闘は双方が全滅しました。")
                     
                     # 💡 双方全滅のため、winner_uid=None で呼び出して両方の部隊を安全に削除
                     safe_terminate_battle(atk_uid, dfn_uid, winner_uid=None)
