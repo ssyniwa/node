@@ -739,9 +739,7 @@ else:
                 if u["owner"] == "プレイヤー(赤)":
                     u["moved"] = False
                     
-            st.session_state.turn += 1
-            st.session_state.phase = "資金確保"  # 資金フェーズに戻る
-            add_log(f"📢 ターン {st.session_state.turn} が開始されました。")
+            
             st.rerun()
 
     # --- ⚔️ 6. 統合：戦場フェーズ（CORSセキュリティ・フリーズバグ完全修正版） ---
