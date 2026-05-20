@@ -158,12 +158,13 @@ def run_ai_turn():
         # -------------------------------------------------------------------------
         # 💡 COLORSのキー名と完全に一致させました
         ai_factions = ["AI(青)", "AI(緑)"]
-        for country in ai_factions:
-            money=sum(n["economy"] for n in st.session_state.nodes.values() if n["owner"] == country)
-            st.session_state.country_data[country]["gold"] += money
+        
         for faction in ai_factions:
             # このAI勢力が支配している領地をリストアップ
             my_nodes = [nid for nid, n in st.session_state.nodes.items() if n["owner"] == faction]
+            
+            money=sum(n["economy"] for n in st.session_state.nodes.values() if n["owner"] == faction)
+            st.session_state.country_data[faction]["gold"] += money
             while st.session_state.country_data[faction]["gold"] >= 30:
                 if my_nodes:
                     # 支配領地数に応じた雇用確率（20%〜50%）
