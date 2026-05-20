@@ -291,8 +291,7 @@ def run_ai_turn():
 def _cleanup_ai_flags():
     """AIターンの終了時に、プレイヤー以外の全部隊のフラグを一括リフレッシュ"""
     for u in st.session_state.units.values():
-        if u["owner"] != "プレイヤー(赤)":
-            u["moved"] = False   
+        if u["owner"] != "プレイヤー(赤)":   
             u["is_new"] = False
 def generate_improved_node_label(node_id, info):
     owner = info["owner"]
