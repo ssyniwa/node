@@ -925,7 +925,7 @@ else:
                 winner_name = b_info["player_unit_name"]
                 loser_name = b_info["enemy_unit_name"]
                 
-                st.success(f"🛡️ **【防衛成功】プレイヤー側：{winner_name}** が領地を死守しました！")
+                st.success(f"🛡️ **プレイヤー側：{winner_name}** が勝利しました！")
                 st.markdown(f"💀 AI側：{loser_name} の侵略軍は返り討ちにあい、全滅しました。")
                 
                 if st.button("防衛報告を確認してマップへ戻る", use_container_width=True, type="primary"):
@@ -935,8 +935,8 @@ else:
                         add_log("🛡️ スキル【円卓の加護】が発動！負傷兵が1名復帰しました。")
                     
                     
-                        
-                    add_log(f"🛡️ 【戦果】{winner_name} が見事に【{target_node}】の守備に成功しました。")
+                    st.session_state.nodes[target_node]["owner"] = winner_owner    
+                    add_log(f"🛡️ 【戦果】{winner_name} が見事に【{target_node}】の奪取、守備に成功しました。")
                     
                     safe_terminate_battle(atk_uid, dfn_uid, winner_uid=dfn_uid)
             # ✨ 追記：相打ち（draw）パターンのリザルト画面処理
