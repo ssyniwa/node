@@ -284,8 +284,8 @@ def run_ai_turn():
     add_log("🤖 AI軍の全作戦行動が完了しました。次のターン（資金確保フェーズ）に移ります。")
     
     # 💡 【重要】AIターン終了時にフェーズを戻し、ターンを進める処理を追加
-    st.session_state.phase = "資金確保"
-    st.session_state.turn += 1
+    
+    st.session_state.units[ai_uid]["moved"] = False # 最後の部隊も確実に行動済みにする
     st.rerun()
 
 def _cleanup_ai_flags():
