@@ -23,13 +23,13 @@ SOLDIER_TYPES = {
 CAPTAIN_POOL = [
     {"name": "レオニダス", "atk": 15, "dfn": 10, "mot": 5, "image": "assets/reonidas.png", "skill_id": "spartan_wall", "skill_name": "スパルタの不撓不屈", "skill_desc": "ピンチ時に絶対防御"},
     {"name": "ジャンヌ", "atk": 10, "dfn": 15, "mot": 8, "image": "assets/zannu.png", "skill_id": "holy_prayer", "skill_name": "聖女の進軍祈祷", "skill_desc": "部隊移動速度1.5倍"},
-    {"name": "ノブナガ", "atk": 18, "dfn": 8, "mot": 4, "image": "assets/nobunaga.png", "skill_id": "three_line_fire", "skill_name": "三段撃ちの烈火", "skill_desc": "弾丸の発射確率が2倍"},
+    {"name": "ノブナガ", "atk": 18, "dfn": 8, "mot": 4, "image": "assets/nobunaga.png", "skill_id": "god_speed", "skill_name": "三段撃ちの烈火", "skill_desc": "弾丸の発射確率が2倍"},
     {"name": "アーサー", "atk": 12, "dfn": 12, "mot": 6, "image": "assets/arther.png", "skill_id": "avalon_bless", "skill_name": "円卓の加護", "skill_desc": "戦闘終了後にHP回復"},
-    {"name": "アレクサンダー", "atk": 14, "dfn": 11, "mot": 7, "image": "assets/arexander.png", "skill_id": "phalanx_push", "skill_name": "東方遠征の覇道", "skill_desc": "常時攻撃力プラス"},
+    {"name": "アレクサンダー", "atk": 14, "dfn": 11, "mot": 7, "image": "assets/arexander.png", "skill_id": "lightning_strike", "skill_name": "東方遠征の覇道", "skill_desc": "常時攻撃力プラス"},
     {"name": "あかね", "atk": 13, "dfn": 14, "mot": 10, "image": "assets/akane.png", "skill_id": "crimson_drive", "skill_name": "紅蓮の情熱", "skill_desc": "弾丸速度アップ"},
     {"name": "しずく", "atk": 16, "dfn": 16, "mot": 12, "image": "assets/sizuku.png", "skill_id": "clear_mind", "skill_name": "明鏡止水の戦術", "skill_desc": "敵の攻撃力ダウン"},
     {"name": "みつば", "atk": 12, "dfn": 18, "mot": 13, "image": "assets/mituba.png", "skill_id": "clover_luck", "skill_name": "三つ葉の幸運", "skill_desc": "資金確保の収入UP"},
-    {"name": "あいり", "atk": 17, "dfn": 12, "mot": 5, "image": "assets/airi.png", "skill_id": "gale_strike", "skill_name": "疾風怒濤の連撃", "skill_desc": "確率でクリティカル"},
+    {"name": "あいり", "atk": 17, "dfn": 12, "mot": 5, "image": "assets/airi.png", "skill_id": "sniper_eye", "skill_name": "疾風怒濤の連撃", "skill_desc": "確率でクリティカル"},
     {"name": "カイル", "atk": 14, "dfn": 14, "mot": 9, "image": "assets/kyle.png", "skill_id": "iron_discipline", "skill_name": "鉄の規律", "skill_desc": "領地投資の費用割引"},
     {"name": "ケイト", "atk": 19, "dfn": 9, "mot": 4, "image": "assets/kate.png", "skill_id": "lightning_raid", "skill_name": "電撃の強襲作戦", "skill_desc": "開幕に先制弾発射"},
 ]
@@ -39,7 +39,7 @@ AI_UNIT_POOL = [
     {"captain": {"name": "AIA", "atk": 18, "dfn": 9, "image": "assets/aia.png", "skill_id": "sky_ace", "skill_name": "第1空軍の猛威", "skill_desc": "戦闘機部隊を強化"}, "soldier_type": "戦闘機部隊", "count": 5},
     {"captain": {"name": "AIB", "atk": 14, "dfn": 14, "image": "assets/aib.png", "skill_id": "panzer_charge", "skill_name": "鋼鉄の進撃", "skill_desc": "戦車部隊のHPアップ"}, "soldier_type": "戦車部隊", "count": 7},
     {"captain": {"name": "ゼウス", "atk": 20, "dfn": 15, "image": "assets/zeusu.png", "skill_id": "thunder_bolt", "skill_name": "全能なる神の雷霆", "skill_desc": "ミサイルが3方向へ拡散"}, "soldier_type": "ミサイル部隊", "count": 3},
-    {"captain": {"name": "カエサル", "atk": 12, "dfn": 18, "image": "assets/kaesaru.png", "skill_id": "imperator_tactics", "skill_name": "賽は投げられた", "skill_desc": "射程距離が大幅アップ"}, "soldier_type": "戦車部隊", "count": 5},
+    {"captain": {"name": "カエサル", "atk": 12, "dfn": 18, "image": "assets/kaesaru.png", "skill_id": "eagle_eye", "skill_name": "賽は投げられた", "skill_desc": "射程距離が大幅アップ"}, "soldier_type": "戦車部隊", "count": 5},
     {"captain": {"name": "ナポレオン", "atk": 16, "dfn": 10, "image": "assets/naporeon.png", "skill_id": "artillery_god", "skill_name": "皇帝の飽和砲撃", "skill_desc": "砲撃の範囲拡大"}, "soldier_type": "砲撃部隊", "count": 8},
     {"captain": {"name": "ハンニバル", "atk": 15, "dfn": 12, "image": "assets/hannibaru.png", "skill_id": "alps_tactics", "skill_name": "アルプス越えの奇襲", "skill_desc": "前進した位置から開始"}, "soldier_type": "戦闘機部隊", "count": 4},
     {"captain": {"name": "チンギスハーン", "atk": 14, "dfn": 8, "image": "assets/tingishun.png", "skill_id": "nomad_arrow", "skill_name": "蒼き狼の騎射", "skill_desc": "銃撃部隊を超強化"}, "soldier_type": "銃撃部隊", "count": 15},
@@ -742,11 +742,7 @@ else:
         atk_max_hp = atk_unit["count"] * 10 + atk_unit.get("captain", {}).get("dfn", 10)
         dfn_max_hp = dfn_unit["count"] * 10 + dfn_unit.get("captain", {}).get("dfn", 10)
 
-        # 将軍スキルによるHP補正をPython側で安全に事前適用
-        if atk_unit.get("captain", {}).get("skill_id") == "panzer_charge":
-            atk_max_hp += 50
-        if dfn_unit.get("captain", {}).get("skill_id") == "panzer_charge":
-            dfn_max_hp += 50
+        
 
         atk_atk = SOLDIER_TYPES[atk_soldier]["atk"] + atk_unit.get("captain", {}).get("atk", 10)
         dfn_atk = SOLDIER_TYPES[dfn_soldier]["atk"] + dfn_unit.get("captain", {}).get("dfn", 10)
@@ -756,6 +752,75 @@ else:
 
         atk_color = SOLDIER_TYPES[atk_soldier]["color"]
         dfn_color = SOLDIER_TYPES[dfn_soldier]["color"]
+
+        # スキルIDの取得
+        atk_skill_id = atk_unit.get("captain", {}).get("skill_id", "none")
+        dfn_skill_id = dfn_unit.get("captain", {}).get("skill_id", "none")
+
+        # ==========================================
+        # 🔥 Python側：事前シミュレーション用スキル補正
+        # ==========================================
+        # 1. HP補正 (装甲突撃: +50, スパルタの壁: +80, 聖なる祈り: +40, アルプス戦術: +60)
+        p_atk_hp = atk_max_hp
+        if atk_skill_id == "panzer_charge": p_atk_hp += 50
+        elif atk_skill_id == "spartan_wall": p_atk_hp += 80
+        elif atk_skill_id == "holy_prayer": p_atk_hp += 40
+        elif atk_skill_id == "alps_tactics": p_atk_hp += 60
+
+        p_dfn_hp = dfn_max_hp
+        if dfn_skill_id == "panzer_charge": p_dfn_hp += 50
+        elif dfn_skill_id == "spartan_wall": p_dfn_hp += 80
+        elif dfn_skill_id == "holy_prayer": p_dfn_hp += 40
+        elif dfn_skill_id == "alps_tactics": p_dfn_hp += 60
+
+        # 2. 攻撃力補正 (電撃戦: 1.5倍, 紅蓮の衝動: 1.8倍, 電光石火: 1.4倍, 空の覇者: 1.5倍, 砲撃の神: 1.6倍)
+        p_atk_dmg = atk_atk
+        if atk_skill_id == "lightning_strike": p_atk_dmg *= 1.5
+        elif atk_skill_id == "crimson_drive": p_atk_dmg *= 1.8
+        elif atk_skill_id == "lightning_raid": p_atk_dmg *= 1.4
+        elif atk_skill_id == "sky_ace": p_atk_dmg *= 1.5
+        elif atk_skill_id == "artillery_god": p_atk_dmg *= 1.6
+
+        p_dfn_dmg = dfn_atk
+        if dfn_skill_id == "lightning_strike": p_dfn_dmg *= 1.5
+        elif dfn_skill_id == "crimson_drive": p_dfn_dmg *= 1.8
+        elif dfn_skill_id == "lightning_raid": p_dfn_dmg *= 1.4
+        elif dfn_skill_id == "sky_ace": p_dfn_dmg *= 1.5
+        elif dfn_skill_id == "artillery_god": p_dfn_dmg *= 1.6
+
+        # 3. 特殊シミュレーション効果（明鏡止水: 被ダメ0.8倍、誘惑の魔眼: 相手攻撃力0.7倍）
+        if dfn_skill_id == "clear_mind": p_dfn_dmg *= 1.2 # 反撃力強化扱い
+        if atk_skill_id == "clear_mind": p_atk_dmg *= 1.2
+        if dfn_skill_id == "alluring_charm": p_atk_dmg *= 0.7 # 相手を弱体化
+        if atk_skill_id == "alluring_charm": p_dfn_dmg *= 0.7
+        if "simulated_result" not in st.session_state or st.session_state.simulated_result is None:
+            sim_dfn_hp = p_dfn_hp
+            sim_atk_hp = p_atk_hp
+            
+            for _ in range(250):
+                # 攻撃側 -> 防衛側
+                dmg_to_dfn = p_atk_dmg * random.uniform(0.8, 1.2)
+                if dfn_skill_id == "spartan_wall": dmg_to_dfn *= 0.7 # 防御壁
+                sim_dfn_hp -= dmg_to_dfn
+
+                # 防衛側 -> 攻撃側
+                dmg_to_atk = p_dfn_dmg * random.uniform(0.8, 1.2)
+                if atk_skill_id == "spartan_wall": dmg_to_atk *= 0.7
+                sim_atk_hp -= dmg_to_atk
+                
+                # 聖なる祈り（毎ターン微回復シミュレート）
+                if dfn_skill_id == "holy_prayer": sim_dfn_hp += 1.5
+                if atk_skill_id == "holy_prayer": sim_atk_hp += 1.5
+
+                if sim_dfn_hp <= 0 or sim_atk_hp <= 0:
+                    break
+            
+            if sim_dfn_hp <= 0 and sim_atk_hp <= 0:
+                st.session_state.simulated_result = "draw"
+            elif sim_dfn_hp <= 0:
+                st.session_state.simulated_result = "atk_win"
+            else:
+                st.session_state.simulated_result = "dfn_win"
 
         # 左右の部隊UI表示
         col_dfn_ui, col_vs, col_atk_ui = st.columns([2, 1, 2])
@@ -819,16 +884,77 @@ else:
                 const canvas = document.getElementById('battleCanvas');
                 const ctx = canvas.getContext('2d');
 
-                let dfn_hp = {dfn_max_hp};
-                let atk_hp = {atk_max_hp};
-                const dfn_max = {dfn_max_hp};
-                const atk_max = {atk_max_hp};
+                // 💡 将軍スキルによる基礎情報のJavaScript側への引き継ぎと反映
+                let dfn_skill = "{dfn_skill_id}";
+                let atk_skill = "{atk_skill_id}";
+
+                // 🛡️ 1. HP系スキルの適用 (スパルタの壁+80, 装甲突撃+50, アルプス戦術+60, 聖なる祈り+40)
+                let dfn_boost = 0;
+                if (dfn_skill === "spartan_wall") dfn_boost = 80;
+                else if (dfn_skill === "panzer_charge") dfn_boost = 50;
+                else if (dfn_skill === "alps_tactics") dfn_boost = 60;
+                else if (dfn_skill === "holy_prayer") dfn_boost = 40;
+
+                let atk_boost = 0;
+                if (atk_skill === "spartan_wall") atk_boost = 80;
+                else if (atk_skill === "panzer_charge") atk_boost = 50;
+                else if (atk_skill === "alps_tactics") atk_boost = 60;
+                else if (atk_skill === "holy_prayer") atk_boost = 40;
+
+                let dfn_max = {dfn_max_hp} + dfn_boost;
+                let atk_max = {atk_max_hp} + atk_boost;
+                let dfn_hp = dfn_max;
+                let atk_hp = atk_max;
 
                 let dfn_x = 80, dfn_y = 175;
                 let atk_x = 820, atk_y = 175;
 
-                let dfn_speed = 1.5;
-                let atk_speed = 1.5;
+                // ⚡ 2. 移動速度補正 (電光石火・神速は前進が早い)
+                let dfn_speed = (dfn_skill === "lightning_raid" || dfn_skill === "god_speed") ? 3.0 : 1.5;
+                let atk_speed = (atk_skill === "lightning_raid" || atk_skill === "god_speed") ? 3.0 : 1.5;
+
+                // 🎯 3. 射程補正 (千里眼: 1.5倍, 砲撃の神: 1.3倍, 遊牧の長弓: 1.4倍)
+                let dfn_range_mult = 1.0;
+                if (dfn_skill === "eagle_eye") dfn_range_mult = 1.5;
+                else if (dfn_skill === "artillery_god") dfn_range_mult = 1.3;
+                else if (dfn_skill === "nomad_arrow") dfn_range_mult = 1.4;
+
+                let atk_range_mult = 1.0;
+                if (atk_skill === "eagle_eye") atk_range_mult = 1.5;
+                else if (atk_skill === "artillery_god") atk_range_mult = 1.3;
+                else if (atk_skill === "nomad_arrow") atk_range_mult = 1.4;
+
+                let dfn_range = {dfn_range} * dfn_range_mult;
+                let atk_range = {atk_range} * atk_range_mult;
+
+                // ⚔️ 4. 連射頻度補正 (神速・電光石火・遊牧の長弓)
+                let dfn_fire_rate = 0.08;
+                if (dfn_skill === "god_speed") dfn_fire_rate = 0.18;
+                else if (dfn_skill === "lightning_raid") dfn_fire_rate = 0.14;
+                else if (dfn_skill === "nomad_arrow") dfn_fire_rate = 0.12;
+
+                let atk_fire_rate = 0.08;
+                if (atk_skill === "god_speed") atk_fire_rate = 0.18;
+                else if (atk_skill === "lightning_raid") atk_fire_rate = 0.14;
+                else if (atk_skill === "nomad_arrow") atk_fire_rate = 0.12;
+
+                // 💥 5. 攻撃威力基本値補正 (紅蓮の衝動1.8倍, 砲撃の神1.6倍, 電撃戦/空の覇者1.5倍)
+                let dfn_atk_mult = 1.0;
+                if (dfn_skill === "crimson_drive") dfn_atk_mult = 1.8;
+                else if (dfn_skill === "artillery_god") dfn_atk_mult = 1.6;
+                else if (dfn_skill === "lightning_strike" || dfn_skill === "sky_ace") dfn_atk_mult = 1.5;
+
+                let atk_atk_mult = 1.0;
+                if (atk_skill === "crimson_drive") atk_atk_mult = 1.8;
+                else if (atk_skill === "artillery_god") atk_atk_mult = 1.6;
+                else if (atk_skill === "lightning_strike" || atk_skill === "sky_ace") atk_atk_mult = 1.5;
+
+                // 💔 6. デバフ補正 (誘惑の魔眼による敵の火力低下 0.7倍)
+                if (atk_skill === "alluring_charm") dfn_atk_mult *= 0.7;
+                if (dfn_skill === "alluring_charm") atk_atk_mult *= 0.7;
+
+                let dfn_atk_base = {dfn_atk} * dfn_atk_mult;
+                let atk_atk_base = {atk_atk} * atk_atk_mult;
 
                 let bullets = [];
                 let timer = 0;
@@ -856,22 +982,42 @@ else:
                         document.getElementById('statusText').innerText = '🏳️ 合戦決着！下の「戦果を確認する」を押してください。';
                         return;
                     }}
-                    
+                    // ✨ スキル演出：【聖なる祈り】・【アルプス戦術】による持続リジェネ（回復）
+                    if (timer % 30 === 0) {{
+                        if (dfn_skill === "holy_prayer" && dfn_hp > 0) dfn_hp = Math.min(dfn_max, dfn_hp + 5);
+                        if (dfn_skill === "alps_tactics" && dfn_hp > 0) dfn_hp = Math.min(dfn_max, dfn_hp + 3);
+                        if (atk_skill === "holy_prayer" && atk_hp > 0) atk_hp = Math.min(atk_max, atk_hp + 5);
+                        if (atk_skill === "alps_tactics" && atk_hp > 0) atk_hp = Math.min(atk_max, atk_hp + 3);
+                    }}
                     let current_distance = Math.abs(atk_x - dfn_x);
-                    if (current_distance > {dfn_range} && dfn_x < atk_x - 50) {{ dfn_x += dfn_speed; }}
-                    if (current_distance > {atk_range} && atk_x > dfn_x + 50) {{ atk_x -= atk_speed; }}
+                    if (current_distance > dfn_range && dfn_x < atk_x - 50) {{ dfn_x += dfn_speed; }}
+                    if (current_distance > atk_range && atk_x > dfn_x + 50) {{ atk_x -= atk_speed; }}
                     
+                    // キャラクター本体描画 (明鏡止水はオーラをまとう)
+                    if (dfn_skill === "clear_mind") {{
+                        ctx.fillStyle = 'rgba(0, 255, 255, 0.3)';
+                        ctx.beginPath(); ctx.arc(dfn_x, dfn_y, 35, 0, Math.PI*2); ctx.fill();
+                    }}
                     ctx.fillStyle = '{dfn_color}';
                     ctx.beginPath(); ctx.arc(dfn_x, dfn_y, 25, 0, Math.PI*2); ctx.fill();
                     
+                    if (atk_skill === "clear_mind") {{
+                        ctx.fillStyle = 'rgba(0, 255, 255, 0.3)';
+                        ctx.beginPath(); ctx.arc(atk_x, atk_y, 35, 0, Math.PI*2); ctx.fill();
+                    }}
                     ctx.fillStyle = '{atk_color}';
                     ctx.beginPath(); ctx.arc(atk_x, atk_y, 25, 0, Math.PI*2); ctx.fill();
-                    
-                    if(Math.random() < 0.08 && dfn_hp > 0) {{
-                        bullets.push({{x: dfn_x + 25, y: dfn_y, vx: 7, side: 'dfn', color: '{dfn_color}'}});
+                    // 射撃生成
+                    if(Math.random() < dfn_fire_rate && dfn_hp > 0) {{
+                        // 万雷の轟き・雷霆の如くは弾が黄色く、2発同時に出る特性
+                        let isThunder = (dfn_skill === "thunder_bolt" || dfn_skill === "thunder_bolt_ai");
+                        bullets.push({{x: dfn_x + 25, y: dfn_y - (isThunder?8:0), vx: 8, side: 'dfn', color: isThunder?'#fff700':'{dfn_color}'}});
+                        if(isThunder) bullets.push({{x: dfn_x + 25, y: dfn_y + 8, vx: 8, side: 'dfn', color: '#fff700'}});
                     }}
-                    if(Math.random() < 0.08 && atk_hp > 0) {{
-                        bullets.push({{x: atk_x - 25, y: atk_y, vx: -7, side: 'atk', color: '{atk_color}'}});
+                    if(Math.random() < atk_fire_rate && atk_hp > 0) {{
+                        let isThunder = (atk_skill === "thunder_bolt" || atk_skill === "thunder_bolt_ai");
+                        bullets.push({{x: atk_x - 25, y: atk_y - (isThunder?8:0), vx: -8, side: 'atk', color: isThunder?'#fff700':'{atk_color}'}});
+                        if(isThunder) bullets.push({{x: atk_x - 25, y: atk_y + 8, vx: -8, side: 'atk', color: '#fff700'}});
                     }}
                     
                     for(let i = bullets.length - 1; i >= 0; i--) {{
@@ -879,12 +1025,43 @@ else:
                         ctx.fillStyle = b.color;
                         ctx.beginPath(); ctx.arc(b.x, b.y, 5, 0, Math.PI*2); ctx.fill();
                         
+                        // 防衛側の弾が攻撃側に命中
                         if(b.side === 'dfn' && Math.abs(b.x - atk_x) <= 30) {{
-                            atk_hp -= {dfn_atk} * 0.15;
+                            let dmg = dfn_atk_base;
+                            
+                            // 精密射撃クリティカル(25%で3倍)
+                            if (dfn_skill === "sniper_eye" && Math.random() < 0.25) {{
+                                dmg *= 3.0;
+                                ctx.fillStyle = '#ff33ff'; ctx.font = 'bold 14px sans-serif';
+                                ctx.fillText('CRITICAL!', atk_x - 20, atk_y - 40);
+                            }}
+                            
+                            // スパルタの壁による防御軽減 (被ダメージを30%カット)
+                            if (atk_skill === "spartan_wall") {{
+                                dmg *= 0.7;
+                            }}
+                            // 明鏡止水による受け流し (被ダメージを20%カット)
+                            if (atk_skill === "clear_mind") {{
+                                dmg *= 0.8;
+                            }}
+                            
+                            atk_hp -= dmg * 0.15;
                             bullets.splice(i, 1); continue;
                         }}
+                        
+                        // 攻撃側の弾が防衛側に命中
                         if(b.side === 'atk' && Math.abs(b.x - dfn_x) <= 30) {{
-                            dfn_hp -= {atk_atk} * 0.15;
+                            let dmg = atk_atk_base;
+                            if (atk_skill === "sniper_eye" && Math.random() < 0.25) {{
+                                dmg *= 3.0;
+                                ctx.fillStyle = '#ff33ff'; ctx.font = 'bold 14px sans-serif';
+                                ctx.fillText('CRITICAL!', dfn_x - 20, dfn_y - 40);
+                            }}
+                            
+                            if (dfn_skill === "spartan_wall") dmg *= 0.7;
+                            if (dfn_skill === "clear_mind") dmg *= 0.8;
+                            
+                            dfn_hp -= dmg * 0.15;
                             bullets.splice(i, 1); continue;
                         }}
                     }}
@@ -918,7 +1095,15 @@ else:
                 
                 if st.button("敗戦報告を確認してマップへ戻る", use_container_width=True, type="primary"):
                     # データを安全に反映してからマップへ戻る
-                    
+                    for country in st.session_state.country_data.keys():
+                        if country == "AI(青)" or country == "AI(緑)":
+                            # 💰 特殊内政スキル処理：【女王の富】・【王家の栄華】による勝利時追加ゴールド略奪
+                            if atk_skill_id == "queen_wealth":
+                                st.session_state.country_data[country]["gold"] += 30
+                                add_log("💰 AIスキル【女王の富】効果により、追加資金が徴収されました。")
+                            elif atk_skill_id == "royal_splendor":
+                                st.session_state.country_data[country]["gold"] += 50
+                                add_log("🔱 AIスキル【王家の栄華】効果により、巨額の国庫ボーナスが動きました。")
                     st.session_state.nodes[target_node]["owner"] = winner_owner
                     add_log(f"⚔️ 【占領】{target_node} が {winner_name} に占領されました。")
                     safe_terminate_battle(atk_uid, dfn_uid, winner_uid=atk_uid)
@@ -936,7 +1121,15 @@ else:
                     if winner_owner == "プレイヤー(赤)" and dfn_unit["captain"].get("skill_id") == "avalon_bless":
                         st.session_state.units[dfn_uid]["count"] += 1
                         add_log("🛡️ スキル【円卓の加護】が発動！負傷兵が1名復帰しました。")
-                    
+                    for country in st.session_state.country_data.keys():
+                        if country == "AI(青)" or country == "AI(緑)":
+                            # 💰 特殊内政スキル処理：【女王の富】・【王家の栄華】による勝利時追加ゴールド略奪
+                            if atk_skill_id == "queen_wealth":
+                                st.session_state.country_data[country]["gold"] += 30
+                                add_log("💰 AIスキル【女王の富】効果により、追加資金が徴収されました。")
+                            elif atk_skill_id == "royal_splendor":
+                                st.session_state.country_data[country]["gold"] += 50
+                                add_log("🔱 AIスキル【王家の栄華】効果により、巨額の国庫ボーナスが動きました。")
                     
                     st.session_state.nodes[target_node]["owner"] = winner_owner    
                     add_log(f"🛡️ 【戦果】{winner_name} が見事に【{target_node}】の奪取、守備に成功しました。")
