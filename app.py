@@ -353,7 +353,8 @@ def safe_terminate_battle(atk_uid, dfn_uid, winner_uid=None):
         if dfn_uid in st.session_state.units: del st.session_state.units[dfn_uid]
 
     # 状態の完全リセット
-    st.session_state.js_battle_result = ""
+    st.session_state.simulated_result = None
+    st.session_state.battle_show_result = False
     st.session_state.battle_info = None
     st.session_state.phase = "侵攻"
     st.rerun()
@@ -705,7 +706,7 @@ else:
             add_log(f"📢 ターン {st.session_state.turn} が開始されました。")
             st.rerun()
 
-    # --- ⚔️ 6. 統合：戦場フェーズ（セキュリティ制限・フリーズバグ完全修正版） ---
+    # --- ⚔️ 6. 統合：戦場フェーズ（CORSセキュリティ・フリーズバグ完全修正版） ---
     elif st.session_state.phase == "戦場フェーズ":
         # --- 1. 戦闘情報の安全な読み込みとガード処理 ---
         if "battle_info" not in st.session_state or not st.session_state.battle_info:
@@ -718,9 +719,9 @@ else:
         atk_uid = b_info["enemy_uid"]   # 攻撃側
         dfn_uid = b_info["player_uid"]  # 防衛側
 
-        # セーフティ
+        # 部隊データの存在確認
         if atk_uid not in st.session_state.units or dfn_uid not in st.session_state.units:
-            st.warning("⚠️ 戦闘を継続できない部隊データを確認しました。戦闘を終了します。")
+            st.warning("⚠️ 戦闘データに不整合が発生しました。戦闘を安全に終了します。")
             st.session_state.battle_info = None
             st.session_state.phase = "侵攻"
             st.rerun()
@@ -731,12 +732,18 @@ else:
         st.title("⚔️ リアルタイム交戦スクリーン（戦場フェーズ）")
         st.subheader(f"舞台: {target_node}")
 
-        # 戦闘データ抽出
+        # 戦闘スタッツの抽出
         atk_soldier = atk_unit["soldier_type"]
         dfn_soldier = dfn_unit["soldier_type"]
 
         atk_max_hp = atk_unit["count"] * 10 + atk_unit.get("captain", {}).get("dfn", 10)
         dfn_max_hp = dfn_unit["count"] * 10 + dfn_unit.get("captain", {}).get("dfn", 10)
+
+        # 将軍スキルによるHP補正をPython側で安全に事前適用
+        if atk_unit.get("captain", {}).get("skill_id") == "panzer_charge":
+            atk_max_hp += 50
+        if dfn_unit.get("captain", {}).get("skill_id") == "panzer_charge":
+            dfn_max_hp += 50
 
         atk_atk = SOLDIER_TYPES[atk_soldier]["atk"] + atk_unit.get("captain", {}).get("atk", 10)
         dfn_atk = SOLDIER_TYPES[dfn_soldier]["atk"] + dfn_unit.get("captain", {}).get("dfn", 10)
@@ -747,12 +754,11 @@ else:
         atk_color = SOLDIER_TYPES[atk_soldier]["color"]
         dfn_color = SOLDIER_TYPES[dfn_soldier]["color"]
 
-        # 左右のUI表示
+        # 左右の部隊UI表示
         col_dfn_ui, col_vs, col_atk_ui = st.columns([2, 1, 2])
         with col_dfn_ui:
             st.markdown(f"### 🛡️ 防衛側: {b_info['player_unit_name']}")
             st.markdown(f"**隊長:** {dfn_unit['captain']['name']} (所属: {dfn_unit['owner']})")
-            dfn_skill_id = dfn_unit["captain"].get("skill_id", "none")
             st.markdown(f"⚡ **スキル: {dfn_unit['captain'].get('skill_name', 'なし')}**")
             st.write(f"兵種: **{dfn_soldier}** (x{dfn_unit['count']})")
 
@@ -762,27 +768,43 @@ else:
         with col_atk_ui:
             st.markdown(f"### 🎯 攻撃側: {b_info['enemy_unit_name']}")
             st.markdown(f"**隊長:** {atk_unit['captain']['name']} (所属: {atk_unit['owner']})")
-            atk_skill_id = atk_unit["captain"].get("skill_id", "none")
             st.markdown(f"⚡ **スキル: {atk_unit['captain'].get('skill_name', 'なし')}**")
             st.write(f"兵種: **{atk_soldier}** (x{atk_unit['count']})")
 
-        # --- 2. 状態管理ブリッジ（セッションに直接紐付け） ---
-        if "js_battle_result" not in st.session_state:
-            st.session_state.js_battle_result = ""
+        # --- 2. 【核心】勝敗の事前シミュレーション (JavaScriptに依存しない) ---
+        if "simulated_result" not in st.session_state or st.session_state.simulated_result is None:
+            # 内部的に決着がつくまで簡易戦闘計算
+            sim_dfn_hp = dfn_max_hp
+            sim_atk_hp = atk_max_hp
+            
+            # 最大200ターン擬似計算してスタック防止
+            for _ in range(200):
+                # 攻撃側が防衛側へダメージ
+                sim_dfn_hp -= atk_atk * random.uniform(0.8, 1.2)
+                # 防衛側が攻撃側へダメージ
+                sim_atk_hp -= dfn_atk * random.uniform(0.8, 1.2)
+                
+                if sim_dfn_hp <= 0 or sim_atk_hp <= 0:
+                    break
+            
+            # 勝敗フラグ設定
+            if sim_dfn_hp <= 0 and sim_atk_hp <= 0:
+                st.session_state.simulated_result = "draw"
+            elif sim_dfn_hp <= 0:
+                st.session_state.simulated_result = "atk_win"
+            else:
+                st.session_state.simulated_result = "dfn_win"
 
-        # --- 3. メインコンテンツ：戦闘中 Canvas 描画 or 決着リザルト ---
-        if st.session_state.js_battle_result == "":
-            st.info("🎮 交戦中... 自動で決着がつくと下に結果が表示されます。")
+        # --- 3. フェーズ内状態管理（演出中 or リザルト表示） ---
+        if "battle_show_result" not in st.session_state:
+            st.session_state.battle_show_result = False
 
-            # 💡 フォームの入力値変更イベントを利用して、Streamlitに状態を強制認識させるコンポーネント
-            # キーを指定することで、値が変わると自動で再描画が走ります
-            res_bridge = st.text_input("result_bridge", key="battle_res_key", label_visibility="collapsed")
-            if res_bridge in ["atk_win", "dfn_win"]:
-                st.session_state.js_battle_result = res_bridge
-                st.rerun()
+        # --- 4. メインコンテンツの切り替え ---
+        if not st.session_state.battle_show_result:
+            st.info("🎮 交戦中... 戦闘アニメーションが終了するか、下のボタンを押すと結果が表示されます。")
 
             # ==================================================================
-            # 🎨 HTML5 Canvas + JavaScript（セキュリティ・エラー完全回避版）
+            # 🎨 HTML5 Canvas (純粋な演出専用。親への危険な通信は一切ナシ)
             # ==================================================================
             battle_canvas_html = f"""
             <div style="text-align: center; background: #222; padding: 15px; border-radius: 8px;">
@@ -797,10 +819,7 @@ else:
                 let dfn_hp = {dfn_max_hp};
                 let atk_hp = {atk_max_hp};
                 const dfn_max = {dfn_max_hp};
-                let atk_max = {atk_max_hp};
-
-                if ("{atk_skill_id}" === "panzer_charge") {{ atk_max += 50; atk_hp += 50; }}
-                if ("{dfn_skill_id}" === "panzer_charge") {{ dfn_hp += 50; }}
+                const atk_max = {atk_max_hp};
 
                 let dfn_x = 80, dfn_y = 175;
                 let atk_x = 820, atk_y = 175;
@@ -808,16 +827,8 @@ else:
                 let dfn_speed = 1.5;
                 let atk_speed = 1.5;
 
-                let dfn_range_val = {dfn_range};
-                let atk_range_val = {atk_range};
-
-                let dfn_fire_rate = 0.08;
-                let atk_fire_rate = 0.08;
-
-                let dfn_atk_val = {dfn_atk};
-                let atk_atk_val = {atk_atk};
-
                 let bullets = [];
+                let timer = 0;
                 let battleOver = false;
 
                 function drawHPBars() {{
@@ -835,9 +846,17 @@ else:
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
                     drawHPBars();
                     
+                    timer++;
+                    // 🌟 一定時間（約7秒間）経過したら演出終了とする
+                    if (timer > 400) {{
+                        battleOver = true;
+                        document.getElementById('statusText').innerText = '🏳️ 合戦決着！下の「戦果を確認する」を押してください。';
+                        return;
+                    }}
+                    
                     let current_distance = Math.abs(atk_x - dfn_x);
-                    if (current_distance > dfn_range_val && dfn_x < atk_x - 50) {{ dfn_x += dfn_speed; }}
-                    if (current_distance > atk_range_val && atk_x > dfn_x + 50) {{ atk_x -= atk_speed; }}
+                    if (current_distance > {dfn_range} && dfn_x < atk_x - 50) {{ dfn_x += dfn_speed; }}
+                    if (current_distance > {atk_range} && atk_x > dfn_x + 50) {{ atk_x -= atk_speed; }}
                     
                     ctx.fillStyle = '{dfn_color}';
                     ctx.beginPath(); ctx.arc(dfn_x, dfn_y, 25, 0, Math.PI*2); ctx.fill();
@@ -845,12 +864,11 @@ else:
                     ctx.fillStyle = '{atk_color}';
                     ctx.beginPath(); ctx.arc(atk_x, atk_y, 25, 0, Math.PI*2); ctx.fill();
                     
-                    if(Math.random() < dfn_fire_rate && dfn_hp > 0) {{
-                        bullets.push({{x: dfn_x + 25, y: dfn_y, vx: 7, vy: 0, max_x: dfn_x + dfn_range_val, side: 'dfn', color: '{dfn_color}'}});
+                    if(Math.random() < 0.08 && dfn_hp > 0) {{
+                        bullets.push({{x: dfn_x + 25, y: dfn_y, vx: 7, side: 'dfn', color: '{dfn_color}'}});
                     }}
-                    
-                    if(Math.random() < atk_fire_rate && atk_hp > 0) {{
-                        bullets.push({{x: atk_x - 25, y: atk_y, vx: -7, vy: 0, max_x: atk_x - atk_range_val, side: 'atk', color: '{atk_color}'}});
+                    if(Math.random() < 0.08 && atk_hp > 0) {{
+                        bullets.push({{x: atk_x - 25, y: atk_y, vx: -7, side: 'atk', color: '{atk_color}'}});
                     }}
                     
                     for(let i = bullets.length - 1; i >= 0; i--) {{
@@ -858,83 +876,36 @@ else:
                         ctx.fillStyle = b.color;
                         ctx.beginPath(); ctx.arc(b.x, b.y, 5, 0, Math.PI*2); ctx.fill();
                         
-                        if((b.vx > 0 && b.x > b.max_x) || (b.vx < 0 && b.x < b.max_x)) {{
+                        if(b.side === 'dfn' && Math.abs(b.x - atk_x) <= 30) {{
+                            atk_hp -= {dfn_atk} * 0.15;
                             bullets.splice(i, 1); continue;
                         }}
-                        
-                        if(b.side === 'dfn' && Math.abs(b.x - atk_x) <= 30) {{
-                            atk_hp -= dfn_atk_val * (0.8 + Math.random()*0.4);
-                            bullets.splice(i, 1);
-                            if(atk_hp <= 0) {{ endBattle('dfn_win'); break; }} // 防衛側の勝ち
-                            continue;
-                        }}
-                        
                         if(b.side === 'atk' && Math.abs(b.x - dfn_x) <= 30) {{
-                            dfn_hp -= atk_atk_val * (0.8 + Math.random()*0.4);
-                            bullets.splice(i, 1);
-                            if(dfn_hp <= 0) {{ endBattle('atk_win'); break; }}  // 攻撃側の勝ち
-                            continue;
+                            dfn_hp -= {atk_atk} * 0.15;
+                            bullets.splice(i, 1); continue;
                         }}
                     }}
                     requestAnimationFrame(animate);
                 }}
-
-                function endBattle(result) {{
-                    if (battleOver) return;
-                    battleOver = true;
-                    document.getElementById('statusText').innerText = '🏳️ 合戦決着！結果を反映中...';
-                    
-                    // 💡 サンドボックスの壁を100%突破できる安全なDOMセレクター
-                    setTimeout(() => {{
-                        try {{
-                            // Streamlitの親ドキュメントから、key="battle_res_key"を持つinput要素を探索
-                            const parentInputs = window.parent.document.querySelectorAll('input');
-                            let found = false;
-                            
-                            for (let input of parentInputs) {{
-                                // Streamlitのdata属性や構造変更に左右されない、最も根源的なフォールバックを実装
-                                if (input.id && input.id.includes('battle_res_key') || input.getAttribute('aria-label') === 'result_bridge') {{
-                                    input.value = result;
-                                    input.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                                    input.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                                    found = true;
-                                    break;
-                                }}
-                            }}
-                            
-                            // 万が一親のDOMがガチガチにブロックされている場合用の究極のフォールバック(メッセージパッシング)
-                            if (!found) {{
-                                window.parent.postMessage({{type: 'streamlit:render', result: result}}, '*');
-                            }}
-                        }} catch(e) {{
-                            // 例外をキャッチした場合は、安全に一度だけパラメータリダイレクトを叩く
-                            const topWin = window.top || window.parent;
-                            const u = new URL(topWin.location.href);
-                            u.searchParams.set('battle_res_param', result);
-                            topWin.location.href = u.toString();
-                        }}
-                    }}, 300);
-                }}
-
                 animate();
             </script>
             """
             components.html(battle_canvas_html, height=430)
             
-            # クエリパラメータ方式にフォールバックした場合のPython側の救済キャッチ
-            if "battle_res_param" in st.query_params:
-                st.session_state.js_battle_result = st.query_params.get("battle_res_param")
-                st.query_params.clear()
+            # JavaScriptの不具合に依存しない、Python制御の100%安全な進行ボタン
+            st.write("")
+            if st.button("⚔️ 決着がついたので戦果を確認する", use_container_width=True, type="primary"):
+                st.session_state.battle_show_result = True
                 st.rerun()
-            
+
         else:
             # ==================================================================
-            # 🏁 決着リザルト画面（安全に取得できた結果に基づいて綺麗に描画）
+            # 🏁 決着リザルト画面 (Pythonの計算結果をそのまま表示するため100%安全)
             # ==================================================================
             st.header("📋 合戦最終戦果報告")
-            battle_result_signal = st.session_state.js_battle_result
+            result = st.session_state.simulated_result
             # battle_result_signal に格納された勝敗データに基づいて条件分岐
-            if battle_result_signal == "atk_win":
+            if result == "atk_win":
                 winner_owner = atk_unit["owner"]
                 winner_name = b_info["enemy_unit_name"]
                 loser_name = b_info["player_unit_name"]
@@ -949,7 +920,7 @@ else:
                     add_log(f"⚔️ 【占領】{target_node} が {winner_name} に占領されました。")
                     safe_terminate_battle(atk_uid, dfn_uid, winner_uid=atk_uid)
 
-            elif battle_result_signal == "dfn_win":
+            elif result == "dfn_win":
                 winner_owner = dfn_unit["owner"]
                 winner_name = b_info["player_unit_name"]
                 loser_name = b_info["enemy_unit_name"]
