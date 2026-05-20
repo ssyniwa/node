@@ -201,7 +201,7 @@ def run_ai_turn():
     # 💡 【重要】"AI軍" という文字の検索を廃止し、「プレイヤー(赤)以外」をすべてAI部隊として安全に一括取得
     all_ai_units = {
         uid: u for uid, u in st.session_state.units.items() 
-        if u["owner"] != "プレイヤー(赤)"
+        if u["owner"] in ai_factions and not u.get("moved", False)
     }
     
     # マップ上に活動可能なAI部隊が本当に1つもない場合のみガード
