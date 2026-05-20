@@ -144,6 +144,7 @@ def run_ai_turn():
     COLORSの定義（"AI(青)", "AI(緑)"）に完全準拠しています。
     """
     add_log("🤖 AI軍のターンが開始されました。軍事戦略を立案中...")
+    battle_triggered = False
     # まだこのターンのAI処理が終わっていない場合のみ計算を行う（無限リラン防止）
     if "ai_processed_this_turn" not in st.session_state:
         st.session_state.ai_processed_this_turn = False
@@ -157,7 +158,7 @@ def run_ai_turn():
         # -------------------------------------------------------------------------
         # 💡 COLORSのキー名と完全に一致させました
         ai_factions = ["AI(青)", "AI(緑)"]
-        battle_triggered = False
+        
         for faction in ai_factions:
             # このAI勢力が支配している領地をリストアップ
             my_nodes = [nid for nid, n in st.session_state.nodes.items() if n["owner"] == faction]
@@ -217,7 +218,7 @@ def run_ai_turn():
         return
     # 実際に動かせる部隊の処理ループ
     for ai_uid, ai_unit in all_ai_units.items():
-        if battle_triggered:
+        if battle_triggered == True:
             break
         # 今ターン新規雇用された部隊（is_new）、または既に行動済みの部隊は移動させない
         if ai_unit.get("is_new") or ai_unit.get("moved"):
