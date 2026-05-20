@@ -906,7 +906,7 @@ else:
                             if (!found) {{
                                 window.parent.postMessage({{type: 'streamlit:render', result: result}}, '*');
                             }}
-                        } catch(e) {{
+                        }} catch(e) {{
                             // 例外をキャッチした場合は、安全に一度だけパラメータリダイレクトを叩く
                             const topWin = window.top || window.parent;
                             const u = new URL(topWin.location.href);
