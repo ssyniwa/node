@@ -146,7 +146,8 @@ def run_ai_turn():
     add_log("🤖 AI軍のターンが開始されました。軍事戦略を立案中...")
     # 毎ターン開始時に、全既存部隊の移動フラグをリセット
     for uid in st.session_state.units:
-        st.session_state.units[uid]["moved"] = False
+        if st.session_state.units[uid]["owner"] == "AI(青)" or st.session_state.units[uid]["owner"] == "AI(緑)":
+            st.session_state.units[uid]["moved"] = False
     # -------------------------------------------------------------------------
     # 🛠️ 1. AIの部隊作成（雇用）フェーズ
     # -------------------------------------------------------------------------
