@@ -147,56 +147,57 @@ def run_ai_turn():
     # まだこのターンのAI処理が終わっていない場合のみ計算を行う（無限リラン防止）
     if "ai_processed_this_turn" not in st.session_state:
         st.session_state.ai_processed_this_turn = False
-    # 毎ターン開始時に、全既存部隊の移動フラグをリセット
-    for uid in st.session_state.units:
-        if st.session_state.units[uid]["owner"] == "AI(青)" or st.session_state.units[uid]["owner"] == "AI(緑)":
-            st.session_state.units[uid]["moved"] = False
-    # -------------------------------------------------------------------------
-    # 🛠️ 1. AIの部隊作成（雇用）フェーズ
-    # -------------------------------------------------------------------------
-    # 💡 COLORSのキー名と完全に一致させました
-    ai_factions = ["AI(青)", "AI(緑)"]
-    battle_triggered = False
-    for faction in ai_factions:
-        # このAI勢力が支配している領地をリストアップ
-        my_nodes = [nid for nid, n in st.session_state.nodes.items() if n["owner"] == faction]
-        while st.session_state.country_data[faction]["gold"] >= 30:
-            if my_nodes:
-                # 支配領地数に応じた雇用確率（20%〜50%）
-                spawn_chance = 1.0            
-                if random.random() < spawn_chance:
-                    # 現在部隊が駐留していない「空き領地」を探す
-                    occupied_nodes = {u["location"] for u in st.session_state.units.values()}
-                    empty_my_nodes = [nid for nid in my_nodes if nid not in occupied_nodes]
-                    
-                    if empty_my_nodes:
-                        spawn_node = random.choice(empty_my_nodes)
+    if not st.session_state.ai_processed_this_turn:
+            # 毎ターン開始時に、全既存部隊の移動フラグをリセット
+        for uid in st.session_state.units:
+            if st.session_state.units[uid]["owner"] == "AI(青)" or st.session_state.units[uid]["owner"] == "AI(緑)":
+                st.session_state.units[uid]["moved"] = False
+        # -------------------------------------------------------------------------
+        # 🛠️ 1. AIの部隊作成（雇用）フェーズ
+        # -------------------------------------------------------------------------
+        # 💡 COLORSのキー名と完全に一致させました
+        ai_factions = ["AI(青)", "AI(緑)"]
+        battle_triggered = False
+        for faction in ai_factions:
+            # このAI勢力が支配している領地をリストアップ
+            my_nodes = [nid for nid, n in st.session_state.nodes.items() if n["owner"] == faction]
+            while st.session_state.country_data[faction]["gold"] >= 30:
+                if my_nodes:
+                    # 支配領地数に応じた雇用確率（20%〜50%）
+                    spawn_chance = 1.0            
+                    if random.random() < spawn_chance:
+                        # 現在部隊が駐留していない「空き領地」を探す
+                        occupied_nodes = {u["location"] for u in st.session_state.units.values()}
+                        empty_my_nodes = [nid for nid in my_nodes if nid not in occupied_nodes]
                         
-                        # セッション内のプールからランダム選出
-                        if "ai_unit_pool" in st.session_state and st.session_state.ai_unit_pool:
-                            template = random.choice(st.session_state.ai_unit_pool)
-                        else:
-                            template = {
-                                "captain": {"name": "AI汎用将軍", "skill_id": "none", "skill_name": "なし", "skill_desc": ""},
-                                "soldier_type": "歩兵部隊",
-                                "count": 5
+                        if empty_my_nodes:
+                            spawn_node = random.choice(empty_my_nodes)
+                            
+                            # セッション内のプールからランダム選出
+                            if "ai_unit_pool" in st.session_state and st.session_state.ai_unit_pool:
+                                template = random.choice(st.session_state.ai_unit_pool)
+                            else:
+                                template = {
+                                    "captain": {"name": "AI汎用将軍", "skill_id": "none", "skill_name": "なし", "skill_desc": ""},
+                                    "soldier_type": "歩兵部隊",
+                                    "count": 5
+                                }
+                            
+                            new_uid = f"ai_unit_{random.randint(100000, 999999)}"
+                            
+                            # データをコピーして新規雇用部隊を配置
+                            st.session_state.units[new_uid] = {
+                                "owner": faction,
+                                "location": spawn_node,
+                                "count": template["count"],
+                                "moved": True,
+                                "is_new": True, # 今ターン生成された目印
+                                "captain": template["captain"].copy(),
+                                "soldier_type": template["soldier_type"]
                             }
-                        
-                        new_uid = f"ai_unit_{random.randint(100000, 999999)}"
-                        
-                        # データをコピーして新規雇用部隊を配置
-                        st.session_state.units[new_uid] = {
-                            "owner": faction,
-                            "location": spawn_node,
-                            "count": template["count"],
-                            "moved": True,
-                            "is_new": True, # 今ターン生成された目印
-                            "captain": template["captain"].copy(),
-                            "soldier_type": template["soldier_type"]
-                        }
-                        
-                        add_log(f"💂‍♂️ 【AI徴兵】{faction}が {spawn_node} にて新将軍【{template['captain']['name']}】を招聘！"
-                                f"{template['soldier_type']}（x{template['count']}）を結成しました。")
+                            
+                            add_log(f"💂‍♂️ 【AI徴兵】{faction}が {spawn_node} にて新将軍【{template['captain']['name']}】を招聘！"
+                                    f"{template['soldier_type']}（x{template['count']}）を結成しました。")
 
     # -------------------------------------------------------------------------
     # 🏹 2. AIの部隊進軍・衝突フェーズ
@@ -216,7 +217,8 @@ def run_ai_turn():
         return
     # 実際に動かせる部隊の処理ループ
     for ai_uid, ai_unit in all_ai_units.items():
-        
+        if battle_triggered:
+            break
         # 今ターン新規雇用された部隊（is_new）、または既に行動済みの部隊は移動させない
         if ai_unit.get("is_new") or ai_unit.get("moved"):
             continue
