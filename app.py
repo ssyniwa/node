@@ -705,7 +705,7 @@ else:
             add_log(f"📢 ターン {st.session_state.turn} が開始されました。")
             st.rerun()
 
-    # --- ⚔️ 6. 統合：戦場フェーズ（勝敗反転・データ同期バグ完全修正版） ---
+    # --- ⚔️ 6. 統合：戦場フェーズ（暗転・即戻りバグ完全修正版） ---
     elif st.session_state.phase == "戦場フェーズ":
         # --- 1. 戦闘情報の安全な読み込みとガード処理 ---
         if "battle_info" not in st.session_state or not st.session_state.battle_info:
@@ -728,31 +728,6 @@ else:
         atk_unit = st.session_state.units[atk_uid]
         dfn_unit = st.session_state.units[dfn_uid]
 
-        # 💡 JS（Canvas）からの勝敗シグナルを受信
-        query_params = st.query_params
-        if "battle_result" in query_params:
-            res = query_params["battle_result"]
-            st.query_params.clear() # 即座にクリアして無限ループ防止
-            
-            # --- 防御的処理：部隊データが存在するかを必ず確認 ---
-            if atk_uid in st.session_state.units and dfn_uid in st.session_state.units:
-                if res == "dfn_win":
-                    # 防衛側の勝利：攻撃側を削除、防衛側は生存
-                    del st.session_state.units[atk_uid]
-                    st.session_state.units[dfn_uid]["count"] = max(1, int(st.session_state.units[dfn_uid]["count"] * 0.4))
-                elif res == "atk_win":
-                    # 攻撃側の勝利：防衛側を削除、攻撃側は生存
-                    del st.session_state.units[dfn_uid]
-                    st.session_state.units[atk_uid]["count"] = max(1, int(st.session_state.units[atk_uid]["count"] * 0.4))
-                elif res == "draw":
-                    # 相打ち
-                    if atk_uid in st.session_state.units: del st.session_state.units[atk_uid]
-                    if dfn_uid in st.session_state.units: del st.session_state.units[dfn_uid]
-            
-            # --- 【重要】戦闘情報を完全に消去 ---
-            st.session_state.battle_info = None
-            st.rerun()
-
         st.title("⚔️ リアルタイム交戦スクリーン（戦場フェーズ）")
         st.subheader(f"舞台: {target_node}")
 
@@ -772,7 +747,7 @@ else:
         atk_color = SOLDIER_TYPES[atk_soldier]["color"]
         dfn_color = SOLDIER_TYPES[dfn_soldier]["color"]
 
-        # 左右のステータス表示
+        # 左右のUI表示
         col_dfn_ui, col_vs, col_atk_ui = st.columns([2, 1, 2])
         with col_dfn_ui:
             st.markdown(f"### 🛡️ 防衛側: {b_info['player_unit_name']}")
@@ -791,17 +766,19 @@ else:
             st.markdown(f"⚡ **スキル: {atk_unit['captain'].get('skill_name', 'なし')}**")
             st.write(f"兵種: **{atk_soldier}** (x{atk_unit['count']})")
 
-        # --- 3. リアルタイム勝敗判定 ---
-        is_attacker_win = (dfn_unit["count"] <= 0 and atk_unit["count"] > 0)
-        is_defender_win = (atk_unit["count"] <= 0 and dfn_unit["count"] > 0)
-        is_draw = (atk_unit["count"] <= 0 and dfn_unit["count"] <= 0)
+        # --- 3. JavaScript側と連動する状態管理用テキスト入力 ---
+        if "js_battle_result" not in st.session_state:
+            st.session_state.js_battle_result = ""
+
+        # JavaScriptから値を叩き込むための隠し入力コンポーネント
+        js_bridge = st.text_input("sync_state", key="js_bridge_input", value=st.session_state.js_battle_result, label_visibility="collapsed")
 
         # --- 4. メインコンテンツ：戦闘中 Canvas 描画 or 決着リザルト ---
-        if not (is_attacker_win or is_defender_win or is_draw):
-            st.info("🎮 交戦中... 自動で決着がつくと、リザルト画面に移行します。")
+        if js_bridge == "":
+            st.info("🎮 交戦中... 自動で決着がつくと下に結果が表示されます。")
 
             # ==================================================================
-            # 🎨 HTML5 Canvas + JavaScript（URLパラメータ同期型）
+            # 🎨 HTML5 Canvas + JavaScript（即座リロードしない安全版）
             # ==================================================================
             battle_canvas_html = f"""
             <div style="text-align: center; background: #222; padding: 15px; border-radius: 8px;">
@@ -824,30 +801,17 @@ else:
                 let dfn_x = 80, dfn_y = 175;
                 let atk_x = 820, atk_y = 175;
 
-                if ("{atk_skill_id}" === "alps_tactics") {{ atk_x = 700; }}
-                if ("{dfn_skill_id}" === "alps_tactics") {{ dfn_x = 200; }}
+                let dfn_speed = 1.5;
+                let atk_speed = 1.5;
 
-                let dfn_speed = ("{dfn_skill_id}" === "holy_prayer") ? 2.25 : 1.5;
-                let atk_speed = ("{atk_skill_id}" === "holy_prayer") ? 2.25 : 1.5;
+                let dfn_range_val = {dfn_range};
+                let atk_range_val = {atk_range};
 
-                let dfn_range_val = "{dfn_skill_id}" === "imperator_tactics" ? {dfn_range} + 150 : {dfn_range};
-                let atk_range_val = "{atk_skill_id}" === "imperator_tactics" ? {atk_range} + 150 : {atk_range};
-
-                let dfn_fire_rate = ("{dfn_skill_id}" === "three_line_fire") ? 0.16 : 0.08;
-                if ("{atk_skill_id}" === "alluring_charm") {{ dfn_fire_rate *= 0.5; }}
-
-                let atk_fire_rate = ("{atk_skill_id}" === "three_line_fire") ? 0.16 : 0.08;
-                if ("{dfn_skill_id}" === "alluring_charm") {{ atk_fire_rate *= 0.5; }}
+                let dfn_fire_rate = 0.08;
+                let atk_fire_rate = 0.08;
 
                 let dfn_atk_val = {dfn_atk};
                 let atk_atk_val = {atk_atk};
-                if ("{dfn_skill_id}" === "clear_mind") {{ atk_atk_val *= 0.7; }}
-                if ("{atk_skill_id}" === "clear_mind") {{ dfn_atk_val *= 0.7; }}
-                if ("{dfn_skill_id}" === "phalanx_push") {{ dfn_atk_val += 2; }}
-                if ("{atk_skill_id}" === "phalanx_push") {{ atk_atk_val += 2; }}
-
-                let dfn_is_immune = false, dfn_immune_used = false;
-                let atk_is_immune = false, atk_immune_used = false;
 
                 let bullets = [];
                 let battleOver = false;
@@ -867,71 +831,42 @@ else:
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
                     drawHPBars();
                     
-                    if ("{dfn_skill_id}" === "spartan_wall" && !dfn_immune_used && (dfn_hp / dfn_max) <= 0.3) {{
-                        dfn_is_immune = true; dfn_immune_used = true; setTimeout(() => {{ dfn_is_immune = false; }}, 5000);
-                    }}
-                    if ("{atk_skill_id}" === "spartan_wall" && !atk_immune_used && (atk_hp / atk_max) <= 0.3) {{
-                        atk_is_immune = true; atk_immune_used = true; setTimeout(() => {{ atk_is_immune = false; }}, 5000);
-                    }}
-                    
                     let current_distance = Math.abs(atk_x - dfn_x);
                     if (current_distance > dfn_range_val && dfn_x < atk_x - 50) {{ dfn_x += dfn_speed; }}
                     if (current_distance > atk_range_val && atk_x > dfn_x + 50) {{ atk_x -= atk_speed; }}
                     
-                    ctx.fillStyle = dfn_is_immune ? 'yellow' : '{dfn_color}';
+                    ctx.fillStyle = '{dfn_color}';
                     ctx.beginPath(); ctx.arc(dfn_x, dfn_y, 25, 0, Math.PI*2); ctx.fill();
                     
-                    ctx.fillStyle = atk_is_immune ? 'yellow' : '{atk_color}';
+                    ctx.fillStyle = '{atk_color}';
                     ctx.beginPath(); ctx.arc(atk_x, atk_y, 25, 0, Math.PI*2); ctx.fill();
                     
                     if(Math.random() < dfn_fire_rate && dfn_hp > 0) {{
-                        let b_vx = ("{dfn_skill_id}" === "crimson_drive") ? 11 : 7;
-                        let is_crit = ("{dfn_skill_id}" === "gale_strike" && Math.random() < 0.15);
-                        bullets.push({{x: dfn_x + 25, y: dfn_y + (Math.random()*20-10), vx: b_vx, vy: 0, max_x: dfn_x + dfn_range_val, side: 'dfn', color: is_crit ? 'gold' : '{dfn_color}', is_crit: is_crit}});
+                        bullets.push({{x: dfn_x + 25, y: dfn_y, vx: 7, vy: 0, max_x: dfn_x + dfn_range_val, side: 'dfn', color: '{dfn_color}'}});
                     }}
                     
                     if(Math.random() < atk_fire_rate && atk_hp > 0) {{
-                        let b_vx = ("{atk_skill_id}" === "crimson_drive") ? -11 : -7;
-                        let is_crit = ("{atk_skill_id}" === "gale_strike" && Math.random() < 0.15);
-                        
-                        if ("{atk_skill_id}" === "thunder_bolt") {{
-                            bullets.push({{x: atk_x - 25, y: atk_y, vx: b_vx, vy: 0, max_x: atk_x - atk_range_val, side: 'atk', color: 'yellow', size: 5}});
-                            bullets.push({{x: atk_x - 25, y: atk_y, vx: b_vx, vy: -1.5, max_x: atk_x - atk_range_val, side: 'atk', color: 'yellow', size: 5}});
-                            bullets.push({{x: atk_x - 25, y: atk_y, vx: b_vx, vy: 1.5, max_x: atk_x - atk_range_val, side: 'atk', color: 'yellow', size: 5}});
-                        }} else {{
-                            let b_size = ("{atk_skill_id}" === "artillery_god") ? 12 : 5;
-                            bullets.push({{x: atk_x - 25, y: atk_y + (Math.random()*20-10), vx: b_vx, vy: 0, max_x: atk_x - atk_range_val, side: 'atk', color: is_crit ? 'gold' : '{atk_color}', size: b_size, is_crit: is_crit}});
-                        }}
+                        bullets.push({{x: atk_x - 25, y: atk_y, vx: -7, vy: 0, max_x: atk_x - atk_range_val, side: 'atk', color: '{atk_color}'}});
                     }}
                     
                     for(let i = bullets.length - 1; i >= 0; i--) {{
-                        let b = bullets[i]; b.x += b.vx; b.y += b.vy;
-                        let size = b.size || 5;
-                        
+                        let b = bullets[i]; b.x += b.vx;
                         ctx.fillStyle = b.color;
-                        ctx.beginPath(); ctx.arc(b.x, b.y, size, 0, Math.PI*2); ctx.fill();
+                        ctx.beginPath(); ctx.arc(b.x, b.y, 5, 0, Math.PI*2); ctx.fill();
                         
                         if((b.vx > 0 && b.x > b.max_x) || (b.vx < 0 && b.x < b.max_x)) {{
                             bullets.splice(i, 1); continue;
                         }}
                         
-                        if(b.side === 'dfn' && Math.abs(b.x - atk_x) <= (25 + size/2) && Math.abs(b.y - atk_y) <= 25) {{
-                            if ("{atk_skill_id}" === "royal_splendor" && Math.random() < 0.3) {{ bullets.splice(i, 1); continue; }}
-                            let damage = atk_is_immune ? 1 : dfn_atk_val * (0.8 + Math.random()*0.4);
-                            if (b.is_crit) damage *= 2;
-                            atk_hp -= damage;
-                            if ("{dfn_skill_id}" === "phalanx_push" && atk_x < 850) atk_x += 15;
+                        if(b.side === 'dfn' && Math.abs(b.x - atk_x) <= 30) {{
+                            atk_hp -= dfn_atk_val * (0.8 + Math.random()*0.4);
                             bullets.splice(i, 1);
                             if(atk_hp <= 0) {{ endBattle('dfn_win'); break; }}
                             continue;
                         }}
                         
-                        if(b.side === 'atk' && Math.abs(b.x - dfn_x) <= (25 + size/2) && Math.abs(b.y - dfn_y) <= 25) {{
-                            if ("{dfn_skill_id}" === "royal_splendor" && Math.random() < 0.3) {{ bullets.splice(i, 1); continue; }}
-                            let damage = dfn_is_immune ? 1 : atk_atk_val * (0.8 + Math.random()*0.4);
-                            if (b.is_crit) damage *= 2;
-                            dfn_hp -= damage;
-                            if ("{atk_skill_id}" === "phalanx_push" && dfn_x > 50) dfn_x -= 15;
+                        if(b.side === 'atk' && Math.abs(b.x - dfn_x) <= 30) {{
+                            dfn_hp -= atk_atk_val * (0.8 + Math.random()*0.4);
                             bullets.splice(i, 1);
                             if(dfn_hp <= 0) {{ endBattle('atk_win'); break; }}
                             continue;
@@ -943,75 +878,79 @@ else:
                 function endBattle(result) {{
                     if (battleOver) return;
                     battleOver = true;
-                    document.getElementById('statusText').innerText = '🏳️ 合戦終了！データを同期中...';
+                    document.getElementById('statusText').innerText = '🏳️ 合戦決着！結果を反映中...';
                     
-                    // 💡 URLパラメータに本当の勝敗を書き込み、親ウィンドウ(Streamlit)を確実にリロードさせて反映
+                    // 💡 親ウィンドウのリロードを完全に廃止。隠しInput経由で安全にStreamlitに値を届ける
                     setTimeout(() => {{
-                        try {{
-                            const parentWin = window.parent;
-                            const url = new URL(parentWin.location.href);
-                            url.searchParams.set('battle_result', result);
-                            parentWin.location.href = url.toString();
-                        }} catch(e) {{
-                            console.error("Sync error:", e);
-                            window.parent.location.reload();
+                        const parentDoc = window.parent.document;
+                        const inputs = parentDoc.querySelectorAll('input');
+                        let targetInput = null;
+                        
+                        inputs.forEach(input => {{
+                            // クラス名や位置からStreamlitのText_inputを探す
+                            if(input.getAttribute('aria-label') === 'sync_state' || input.id && input.id.includes('js_bridge_input')) {{
+                                targetInput = input;
+                            }}
+                        }});
+                        
+                        if(!targetInput && inputs.length > 0) {{
+                            targetInput = inputs[0]; // フォールバック
                         }}
-                    }}, 500);
+
+                        if (targetInput) {{
+                            targetInput.value = result;
+                            targetInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                            targetInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                        }}
+                    }}, 300);
                 }}
 
                 animate();
             </script>
             """
-            placeholder = st.empty()
             components.html(battle_canvas_html, height=430)
-            st.stop()
             
         else:
             # ==================================================================
-            # 🏁 【B】決着リザルト処理（自動帰還成功後のリザルト確認画面）
+            # 🏁 決着リザルト画面（ここでしっかりと立ち止まります）
             # ==================================================================
-            st.markdown("## 🏁 最終戦果報告")
+            st.header("📋 合戦最終戦果報告")
             
-            # --- リザルト処理の修正例 ---
-            if is_attacker_win:
+            # js_bridge に格納された勝敗データに基づいて条件分岐
+            if js_bridge == "atk_win":
                 winner_owner = atk_unit["owner"]
                 winner_name = b_info["enemy_unit_name"]
                 loser_name = b_info["player_unit_name"]
                 
-                st.success(f"🏆 **【侵略成功】攻撃側：{winner_name}** が勝利を収めました！")
-                st.error(f"💀 **【全滅】防衛側：{loser_name}** は防衛に失敗し、壊滅しました。")
+                st.error(f"⚔️ **【敗北】AI側：{winner_name}** が占領に成功しました。")
+                st.caption(f"🛡️ プレイヤー側：{loser_name} の守備隊は全滅しました...")
                 
-                if st.button("戦果を確認してマップへ戻る", use_container_width=True, type="primary"):
-                    
+                if st.button("敗戦報告を確認してマップへ戻る", use_container_width=True, type="primary"):
+                    # データを安全に反映してからマップへ戻る
                     
                     st.session_state.nodes[target_node]["owner"] = winner_owner
-                    add_log(f"💥 【戦果】{winner_name} が戦闘に勝利！ 【{target_node}】を完全に占領しました。")
+                    add_log(f"⚔️ 【占領】{target_node} が {winner_name} に占領されました。")
                     safe_terminate_battle(atk_uid, dfn_uid, winner_uid=atk_uid)
-                    
 
-            elif is_defender_win:
+            elif js_bridge == "dfn_win":
                 winner_owner = dfn_unit["owner"]
                 winner_name = b_info["player_unit_name"]
                 loser_name = b_info["enemy_unit_name"]
                 
-                st.success(f"🛡️ **【防衛成功】防衛側：{winner_name}** が領地を完全に死守しました！")
-                st.error(f"💀 **【全滅】攻撃側：{loser_name}** の侵略軍は返り討ちにあいました。")
+                st.success(f"🛡️ **【防衛成功】プレイヤー側：{winner_name}** が領地を死守しました！")
+                st.markdown(f"💀 AI側：{loser_name} の侵略軍は返り討ちにあい、全滅しました。")
                 
                 if st.button("防衛報告を確認してマップへ戻る", use_container_width=True, type="primary"):
+                    # スキル処理
                     if winner_owner == "プレイヤー(赤)" and dfn_unit["captain"].get("skill_id") == "avalon_bless":
                         st.session_state.units[dfn_uid]["count"] += 1
                         add_log("🛡️ スキル【円卓の加護】が発動！負傷兵が1名復帰しました。")
                     
                     
-                    
+                        
                     add_log(f"🛡️ 【戦果】{winner_name} が見事に【{target_node}】の守備に成功しました。")
                     
                     safe_terminate_battle(atk_uid, dfn_uid, winner_uid=dfn_uid)
+            
 
-            elif is_draw:
-                st.warning("⚖️ **【相打ち】激戦の末、双方が全滅しました。**")
-                if st.button("凄惨な結末を確認してマップへ戻る", use_container_width=True):
-                    
-                    st.session_state.nodes[target_node]["owner"] = "中立"
-                    add_log(f"🪦 【戦果】{target_node} は相打ちとなり、領地は【中立】に戻りました。")
-                    safe_terminate_battle(atk_uid, dfn_uid, winner_uid=None)
+            
