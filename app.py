@@ -397,6 +397,8 @@ else:
         # プレイヤー（赤）が持っている領地の数をカウント
         player_land_count = all_owners.count("プレイヤー(赤)")
         total_lands = len(all_owners)
+        en_land_count= all_owners.count("AI(青)") + all_owners.count("AI(緑)")
+        
         
         # 条件A：プレイヤーの領地がゼロになった ➡️ 【ゲームオーバー】
         if player_land_count == 0:
@@ -415,7 +417,7 @@ else:
             st.stop() # 💡 これ以降の通常のマップやフェーズ画面を描画させずにここで止める！
 
         # 条件B：プレイヤーの領地数が全領地数と等しくなった（中立も敵もゼロ） ➡️ 【ゲームクリア】
-        elif player_land_count == total_lands:
+        elif en_land_count == 0:
             st.markdown("<h1 style='text-align: center; color: #ffd700; font-size: 60px; margin-top: 50px;'>👑 VICTORY CLEAR!</h1>", unsafe_allow_html=True)
             st.markdown("<h3 style='text-align: center; color: #fff;'>おめでとうございます！あなたは全土を統一し、世界に覇を唱えました！</h3>", unsafe_allow_html=True)
             
