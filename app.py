@@ -353,7 +353,7 @@ def safe_terminate_battle(atk_uid, dfn_uid, winner_uid=None):
         if dfn_uid in st.session_state.units: del st.session_state.units[dfn_uid]
 
     # 状態の完全リセット
-    st.query_params.clear()
+    st.session_state.js_battle_result = ""
     st.session_state.battle_info = None
     st.session_state.phase = "侵攻"
     st.rerun()
@@ -705,7 +705,7 @@ else:
             add_log(f"📢 ターン {st.session_state.turn} が開始されました。")
             st.rerun()
 
-    # --- ⚔️ 6. 統合：戦場フェーズ（結果フリーズ完全修正版） ---
+    # --- ⚔️ 6. 統合：戦場フェーズ（セキュリティ制限・フリーズバグ完全修正版） ---
     elif st.session_state.phase == "戦場フェーズ":
         # --- 1. 戦闘情報の安全な読み込みとガード処理 ---
         if "battle_info" not in st.session_state or not st.session_state.battle_info:
@@ -718,7 +718,7 @@ else:
         atk_uid = b_info["enemy_uid"]   # 攻撃側
         dfn_uid = b_info["player_uid"]  # 防衛側
 
-        # セーフティ：部隊の生存確認
+        # セーフティ
         if atk_uid not in st.session_state.units or dfn_uid not in st.session_state.units:
             st.warning("⚠️ 戦闘を継続できない部隊データを確認しました。戦闘を終了します。")
             st.session_state.battle_info = None
@@ -728,15 +728,10 @@ else:
         atk_unit = st.session_state.units[atk_uid]
         dfn_unit = st.session_state.units[dfn_uid]
 
-        # --- 2. クエリパラメータ（勝敗シグナル）のチェック ---
-        # 💡 JavaScript側から送られた勝敗を最優先で検知し、状態をロックする
-        query_params = st.query_params
-        battle_result_signal = query_params.get("battle_result", None)
-
         st.title("⚔️ リアルタイム交戦スクリーン（戦場フェーズ）")
         st.subheader(f"舞台: {target_node}")
 
-        # 戦闘データの抽出
+        # 戦闘データ抽出
         atk_soldier = atk_unit["soldier_type"]
         dfn_soldier = dfn_unit["soldier_type"]
 
@@ -771,12 +766,23 @@ else:
             st.markdown(f"⚡ **スキル: {atk_unit['captain'].get('skill_name', 'なし')}**")
             st.write(f"兵種: **{atk_soldier}** (x{atk_unit['count']})")
 
-        # --- 3. メインコンテンツの分岐：交戦中 Canvas か リザルト表示か ---
-        if battle_result_signal is None:
+        # --- 2. 状態管理ブリッジ（セッションに直接紐付け） ---
+        if "js_battle_result" not in st.session_state:
+            st.session_state.js_battle_result = ""
+
+        # --- 3. メインコンテンツ：戦闘中 Canvas 描画 or 決着リザルト ---
+        if st.session_state.js_battle_result == "":
             st.info("🎮 交戦中... 自動で決着がつくと下に結果が表示されます。")
 
+            # 💡 フォームの入力値変更イベントを利用して、Streamlitに状態を強制認識させるコンポーネント
+            # キーを指定することで、値が変わると自動で再描画が走ります
+            res_bridge = st.text_input("result_bridge", key="battle_res_key", label_visibility="collapsed")
+            if res_bridge in ["atk_win", "dfn_win"]:
+                st.session_state.js_battle_result = res_bridge
+                st.rerun()
+
             # ==================================================================
-            # 🎨 HTML5 Canvas + JavaScript（確実なURLパラメータ最上位リダイレクト方式）
+            # 🎨 HTML5 Canvas + JavaScript（セキュリティ・エラー完全回避版）
             # ==================================================================
             battle_canvas_html = f"""
             <div style="text-align: center; background: #222; padding: 15px; border-radius: 8px;">
@@ -859,14 +865,14 @@ else:
                         if(b.side === 'dfn' && Math.abs(b.x - atk_x) <= 30) {{
                             atk_hp -= dfn_atk_val * (0.8 + Math.random()*0.4);
                             bullets.splice(i, 1);
-                            if(atk_hp <= 0) {{ endBattle('dfn_win'); break; }} // 攻撃側HPが0＝防衛側勝利
+                            if(atk_hp <= 0) {{ endBattle('dfn_win'); break; }} // 防衛側の勝ち
                             continue;
                         }}
                         
                         if(b.side === 'atk' && Math.abs(b.x - dfn_x) <= 30) {{
                             dfn_hp -= atk_atk_val * (0.8 + Math.random()*0.4);
                             bullets.splice(i, 1);
-                            if(dfn_hp <= 0) {{ endBattle('atk_win'); break; }}  // 防衛側HPが0＝攻撃側勝利
+                            if(dfn_hp <= 0) {{ endBattle('atk_win'); break; }}  // 攻撃側の勝ち
                             continue;
                         }}
                     }}
@@ -878,13 +884,36 @@ else:
                     battleOver = true;
                     document.getElementById('statusText').innerText = '🏳️ 合戦決着！結果を反映中...';
                     
-                    // 💡 iframeのセキュリティ制限を受けない、最も安全な最上位（親）ウィンドウのURL書き換えコード
+                    // 💡 サンドボックスの壁を100%突破できる安全なDOMセレクター
                     setTimeout(() => {{
-                        const topWindow = window.top || window.parent || window;
-                        const currentUrl = new URL(topWindow.location.href);
-                        currentUrl.searchParams.set('battle_result', result);
-                        topWindow.location.href = currentUrl.toString();
-                    }}, 400);
+                        try {{
+                            // Streamlitの親ドキュメントから、key="battle_res_key"を持つinput要素を探索
+                            const parentInputs = window.parent.document.querySelectorAll('input');
+                            let found = false;
+                            
+                            for (let input of parentInputs) {{
+                                // Streamlitのdata属性や構造変更に左右されない、最も根源的なフォールバックを実装
+                                if (input.id && input.id.includes('battle_res_key') || input.getAttribute('aria-label') === 'result_bridge') {{
+                                    input.value = result;
+                                    input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                                    input.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                                    found = true;
+                                    break;
+                                }}
+                            }}
+                            
+                            // 万が一親のDOMがガチガチにブロックされている場合用の究極のフォールバック(メッセージパッシング)
+                            if (!found) {{
+                                window.parent.postMessage({{type: 'streamlit:render', result: result}}, '*');
+                            }}
+                        } catch(e) {{
+                            // 例外をキャッチした場合は、安全に一度だけパラメータリダイレクトを叩く
+                            const topWin = window.top || window.parent;
+                            const u = new URL(topWin.location.href);
+                            u.searchParams.set('battle_res_param', result);
+                            topWin.location.href = u.toString();
+                        }}
+                    }}, 300);
                 }}
 
                 animate();
@@ -892,12 +921,18 @@ else:
             """
             components.html(battle_canvas_html, height=430)
             
+            # クエリパラメータ方式にフォールバックした場合のPython側の救済キャッチ
+            if "battle_res_param" in st.query_params:
+                st.session_state.js_battle_result = st.query_params.get("battle_res_param")
+                st.query_params.clear()
+                st.rerun()
+            
         else:
             # ==================================================================
-            # 🏁 決着リザルト画面（クエリパラメータがある限り、ここが固定表示されます）
+            # 🏁 決着リザルト画面（安全に取得できた結果に基づいて綺麗に描画）
             # ==================================================================
             st.header("📋 合戦最終戦果報告")
-
+            battle_result_signal = st.session_state.js_battle_result
             # battle_result_signal に格納された勝敗データに基づいて条件分岐
             if battle_result_signal == "atk_win":
                 winner_owner = atk_unit["owner"]
