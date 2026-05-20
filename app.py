@@ -548,7 +548,7 @@ else:
 
     elif st.session_state.phase == "部隊確保":
         cand = st.session_state.current_candidate
-        st.info(f"【部隊確保フェーズ】仕官希望者: {cand['name']} (攻撃:{cand['atk']}/防御:{cand['dfn']})")
+        st.info(f"【部隊確保フェーズ】仕官希望者: {cand['name']} (攻撃:{cand['atk']}/防御:{cand['dfn']})\nスキル: {cand['skill_name']} - {cand['skill_desc']}")
         try:
             st.image(cand["image"], caption=cand["name"], width=320)
         except:
