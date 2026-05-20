@@ -198,7 +198,7 @@ def run_ai_turn():
                             
                             add_log(f"💂‍♂️ 【AI徴兵】{faction}が {spawn_node} にて新将軍【{template['captain']['name']}】を招聘！"
                                     f"{template['soldier_type']}（x{template['count']}）を結成しました。")
-
+            st.session_state.country_data[faction]["gold"] -= 30
     # -------------------------------------------------------------------------
     # 🏹 2. AIの部隊進軍・衝突フェーズ
     # -------------------------------------------------------------------------
