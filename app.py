@@ -144,57 +144,59 @@ def run_ai_turn():
     COLORSの定義（"AI(青)", "AI(緑)"）に完全準拠しています。
     """
     add_log("🤖 AI軍のターンが開始されました。軍事戦略を立案中...")
-    
-    # ----------------------------------------------------------------=========
+    # 毎ターン開始時に、全既存部隊の移動フラグをリセット
+    for uid in st.session_state.units:
+        st.session_state.units[uid]["moved"] = False
+    # -------------------------------------------------------------------------
     # 🛠️ 1. AIの部隊作成（雇用）フェーズ
-    # ----------------------------------------------------------------=========
+    # -------------------------------------------------------------------------
     # 💡 COLORSのキー名と完全に一致させました
     ai_factions = ["AI(青)", "AI(緑)"]
     
     for faction in ai_factions:
         # このAI勢力が支配している領地をリストアップ
         my_nodes = [nid for nid, n in st.session_state.nodes.items() if n["owner"] == faction]
-        
-        if my_nodes:
-            # 支配領地数に応じた雇用確率（20%〜50%）
-            spawn_chance = 1.0            
-            if random.random() < spawn_chance:
-                # 現在部隊が駐留していない「空き領地」を探す
-                occupied_nodes = {u["location"] for u in st.session_state.units.values()}
-                empty_my_nodes = [nid for nid in my_nodes if nid not in occupied_nodes]
-                
-                if empty_my_nodes:
-                    spawn_node = random.choice(empty_my_nodes)
+        while st.session_state.country_data[faction]["gold"] >= 30:
+            if my_nodes:
+                # 支配領地数に応じた雇用確率（20%〜50%）
+                spawn_chance = 1.0            
+                if random.random() < spawn_chance:
+                    # 現在部隊が駐留していない「空き領地」を探す
+                    occupied_nodes = {u["location"] for u in st.session_state.units.values()}
+                    empty_my_nodes = [nid for nid in my_nodes if nid not in occupied_nodes]
                     
-                    # セッション内のプールからランダム選出
-                    if "ai_unit_pool" in st.session_state and st.session_state.ai_unit_pool:
-                        template = random.choice(st.session_state.ai_unit_pool)
-                    else:
-                        template = {
-                            "captain": {"name": "AI汎用将軍", "skill_id": "none", "skill_name": "なし", "skill_desc": ""},
-                            "soldier_type": "歩兵部隊",
-                            "count": 5
+                    if empty_my_nodes:
+                        spawn_node = random.choice(empty_my_nodes)
+                        
+                        # セッション内のプールからランダム選出
+                        if "ai_unit_pool" in st.session_state and st.session_state.ai_unit_pool:
+                            template = random.choice(st.session_state.ai_unit_pool)
+                        else:
+                            template = {
+                                "captain": {"name": "AI汎用将軍", "skill_id": "none", "skill_name": "なし", "skill_desc": ""},
+                                "soldier_type": "歩兵部隊",
+                                "count": 5
+                            }
+                        
+                        new_uid = f"ai_unit_{random.randint(100000, 999999)}"
+                        
+                        # データをコピーして新規雇用部隊を配置
+                        st.session_state.units[new_uid] = {
+                            "owner": faction,
+                            "location": spawn_node,
+                            "count": template["count"],
+                            "moved": True,
+                            "is_new": True, # 今ターン生成された目印
+                            "captain": template["captain"].copy(),
+                            "soldier_type": template["soldier_type"]
                         }
-                    
-                    new_uid = f"ai_unit_{random.randint(100000, 999999)}"
-                    
-                    # データをコピーして新規雇用部隊を配置
-                    st.session_state.units[new_uid] = {
-                        "owner": faction,
-                        "location": spawn_node,
-                        "count": template["count"],
-                        "moved": False, 
-                        "is_new": True, # 今ターン生成された目印
-                        "captain": template["captain"].copy(),
-                        "soldier_type": template["soldier_type"]
-                    }
-                    
-                    add_log(f"💂‍♂️ 【AI徴兵】{faction}が {spawn_node} にて新将軍【{template['captain']['name']}】を招聘！"
-                            f"{template['soldier_type']}（x{template['count']}）を結成しました。")
+                        
+                        add_log(f"💂‍♂️ 【AI徴兵】{faction}が {spawn_node} にて新将軍【{template['captain']['name']}】を招聘！"
+                                f"{template['soldier_type']}（x{template['count']}）を結成しました。")
 
-    # ----------------------------------------------------------------=========
+    # -------------------------------------------------------------------------
     # 🏹 2. AIの部隊進軍・衝突フェーズ
-    # ----------------------------------------------------------------=========
+    # -------------------------------------------------------------------------
     # 💡 【重要】"AI軍" という文字の検索を廃止し、「プレイヤー(赤)以外」をすべてAI部隊として安全に一括取得
     all_ai_units = {
         uid: u for uid, u in st.session_state.units.items() 
@@ -1092,8 +1094,8 @@ else:
                 winner_name = b_info["enemy_unit_name"]
                 loser_name = b_info["player_unit_name"]
                 
-                st.error(f"⚔️ **【敗北】AI側：{winner_name}** が占領に成功しました。")
-                st.caption(f"🛡️ プレイヤー側：{loser_name} の守備隊は全滅しました...")
+                st.error(f"⚔️ **【敗北】侵攻側：{winner_name}** が占領に成功しました。")
+                st.caption(f"🛡️ 防御側：{loser_name} の守備隊は全滅しました...")
                 
                 if st.button("敗戦報告を確認してマップへ戻る", use_container_width=True, type="primary"):
                     # データを安全に反映してからマップへ戻る
@@ -1115,8 +1117,8 @@ else:
                 winner_name = b_info["player_unit_name"]
                 loser_name = b_info["enemy_unit_name"]
                 
-                st.success(f"🛡️ **プレイヤー側：{winner_name}** が勝利しました！")
-                st.markdown(f"💀 AI側：{loser_name} の侵略軍は返り討ちにあい、全滅しました。")
+                st.success(f"🛡️ **防御側：{winner_name}** が勝利しました！")
+                st.markdown(f"💀 侵攻側：{loser_name} の侵略軍は返り討ちにあい、全滅しました。")
                 
                 if st.button("防衛報告を確認してマップへ戻る", use_container_width=True, type="primary"):
                     # スキル処理
