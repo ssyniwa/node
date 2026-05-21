@@ -21,31 +21,31 @@ SOLDIER_TYPES = {
 }
 # --- プレイヤー用将軍プール ---
 CAPTAIN_POOL = [
-    {"name": "レオニダス", "atk": 15, "dfn": 10, "mot": 5, "image": "assets/reonidas.png", "skill_id": "spartan_wall", "skill_name": "スパルタの不撓不屈", "skill_desc": "ピンチ時に絶対防御"},
-    {"name": "ジャンヌ", "atk": 10, "dfn": 15, "mot": 8, "image": "assets/zannu.png", "skill_id": "holy_prayer", "skill_name": "聖女の進軍祈祷", "skill_desc": "部隊移動速度1.5倍"},
-    {"name": "ノブナガ", "atk": 18, "dfn": 8, "mot": 4, "image": "assets/nobunaga.png", "skill_id": "god_speed", "skill_name": "三段撃ちの烈火", "skill_desc": "弾丸の発射確率が2倍"},
-    {"name": "アーサー", "atk": 12, "dfn": 12, "mot": 6, "image": "assets/arther.png", "skill_id": "avalon_bless", "skill_name": "円卓の加護", "skill_desc": "戦闘終了後にHP回復"},
-    {"name": "アレクサンダー", "atk": 14, "dfn": 11, "mot": 7, "image": "assets/arexander.png", "skill_id": "lightning_strike", "skill_name": "東方遠征の覇道", "skill_desc": "常時攻撃力プラス"},
-    {"name": "あかね", "atk": 13, "dfn": 14, "mot": 10, "image": "assets/akane.png", "skill_id": "crimson_drive", "skill_name": "紅蓮の情熱", "skill_desc": "弾丸速度アップ"},
-    {"name": "しずく", "atk": 16, "dfn": 16, "mot": 12, "image": "assets/sizuku.png", "skill_id": "clear_mind", "skill_name": "明鏡止水の戦術", "skill_desc": "敵の攻撃力ダウン"},
+    {"name": "レオニダス", "atk": 15, "dfn": 10, "mot": 5, "image": "assets/reonidas.png", "skill_id": "spartan_wall", "skill_name": "スパルタの不撓不屈", "skill_desc": "戦闘中防御80被ダメージを30%カット"},
+    {"name": "ジャンヌ", "atk": 10, "dfn": 15, "mot": 8, "image": "assets/zannu.png", "skill_id": "holy_prayer", "skill_name": "聖女の進軍祈祷", "skill_desc": "戦闘中防御60回復5"},
+    {"name": "ノブナガ", "atk": 18, "dfn": 8, "mot": 4, "image": "assets/nobunaga.png", "skill_id": "god_speed", "skill_name": "三段撃ちの烈火", "skill_desc": "移動速度アップ連射頻度アップ"},
+    {"name": "アーサー", "atk": 12, "dfn": 12, "mot": 6, "image": "assets/arther.png", "skill_id": "avalon_bless", "skill_name": "円卓の加護", "skill_desc": "戦闘終了後に兵士追加"},
+    {"name": "アレクサンダー", "atk": 14, "dfn": 11, "mot": 7, "image": "assets/arexander.png", "skill_id": "lightning_strike", "skill_name": "東方遠征の覇道", "skill_desc": "攻撃威力アップ2発同時に出る"},
+    {"name": "あかね", "atk": 13, "dfn": 14, "mot": 10, "image": "assets/akane.png", "skill_id": "crimson_drive", "skill_name": "紅蓮の情熱", "skill_desc": "攻撃威力アップ"},
+    {"name": "しずく", "atk": 16, "dfn": 16, "mot": 12, "image": "assets/sizuku.png", "skill_id": "clear_mind", "skill_name": "明鏡止水の戦術", "skill_desc": "ダメージを20%カット"},
     {"name": "みつば", "atk": 12, "dfn": 18, "mot": 13, "image": "assets/mituba.png", "skill_id": "clover_luck", "skill_name": "三つ葉の幸運", "skill_desc": "資金確保の収入UP"},
     {"name": "あいり", "atk": 17, "dfn": 12, "mot": 5, "image": "assets/airi.png", "skill_id": "sniper_eye", "skill_name": "疾風怒濤の連撃", "skill_desc": "確率でクリティカル"},
     {"name": "カイル", "atk": 14, "dfn": 14, "mot": 9, "image": "assets/kyle.png", "skill_id": "iron_discipline", "skill_name": "鉄の規律", "skill_desc": "領地投資の費用割引"},
-    {"name": "ケイト", "atk": 19, "dfn": 9, "mot": 4, "image": "assets/kate.png", "skill_id": "lightning_raid", "skill_name": "電撃の強襲作戦", "skill_desc": "開幕に先制弾発射"},
+    {"name": "ケイト", "atk": 19, "dfn": 9, "mot": 4, "image": "assets/kate.png", "skill_id": "lightning_raid", "skill_name": "電撃の強襲作戦", "skill_desc": "移動速度アップ連射頻度アップ"},
 ]
 
 # --- AI専用の出撃待ち部隊プール ---
 AI_UNIT_POOL = [
-    {"captain": {"name": "AIA", "atk": 18, "dfn": 9, "image": "assets/aia.png", "skill_id": "sky_ace", "skill_name": "第1空軍の猛威", "skill_desc": "戦闘機部隊を強化"}, "soldier_type": "戦闘機部隊", "count": 5},
-    {"captain": {"name": "AIB", "atk": 14, "dfn": 14, "image": "assets/aib.png", "skill_id": "panzer_charge", "skill_name": "鋼鉄の進撃", "skill_desc": "戦車部隊のHPアップ"}, "soldier_type": "戦車部隊", "count": 7},
-    {"captain": {"name": "ゼウス", "atk": 20, "dfn": 15, "image": "assets/zeusu.png", "skill_id": "thunder_bolt", "skill_name": "全能なる神の雷霆", "skill_desc": "ミサイルが3方向へ拡散"}, "soldier_type": "ミサイル部隊", "count": 3},
-    {"captain": {"name": "カエサル", "atk": 12, "dfn": 18, "image": "assets/kaesaru.png", "skill_id": "eagle_eye", "skill_name": "賽は投げられた", "skill_desc": "射程距離が大幅アップ"}, "soldier_type": "戦車部隊", "count": 5},
-    {"captain": {"name": "ナポレオン", "atk": 16, "dfn": 10, "image": "assets/naporeon.png", "skill_id": "artillery_god", "skill_name": "皇帝の飽和砲撃", "skill_desc": "砲撃の範囲拡大"}, "soldier_type": "砲撃部隊", "count": 8},
-    {"captain": {"name": "ハンニバル", "atk": 15, "dfn": 12, "image": "assets/hannibaru.png", "skill_id": "alps_tactics", "skill_name": "アルプス越えの奇襲", "skill_desc": "前進した位置から開始"}, "soldier_type": "戦闘機部隊", "count": 4},
-    {"captain": {"name": "チンギスハーン", "atk": 14, "dfn": 8, "image": "assets/tingishun.png", "skill_id": "nomad_arrow", "skill_name": "蒼き狼の騎射", "skill_desc": "銃撃部隊を超強化"}, "soldier_type": "銃撃部隊", "count": 15},
-    {"captain": {"name": "シバ", "atk": 10, "dfn": 10, "image": "assets/siba.png", "skill_id": "queen_wealth", "skill_name": "シバ王国の財力", "skill_desc": "毎ターン領地経済UP"}, "soldier_type": "銃撃部隊", "count": 10},
-    {"captain": {"name": "マリー", "atk": 13, "dfn": 14, "image": "assets/mary.png", "skill_id": "royal_splendor", "skill_name": "宮廷の華麗なる威風", "skill_desc": "確率で敵の弾を無効化"}, "soldier_type": "砲撃部隊", "count": 6},
-    {"captain": {"name": "クレオパトラ", "atk": 17, "dfn": 11, "image": "assets/kure.png", "skill_id": "alluring_charm", "skill_name": "王妃の誘惑", "skill_desc": "敵の連射力を低下"}, "soldier_type": "戦車部隊", "count": 4},
+    {"captain": {"name": "AIA", "atk": 18, "dfn": 9, "image": "assets/aia.png", "skill_id": "sky_ace", "skill_name": "第1空軍の猛威", "skill_desc": "攻撃威力アップ"}, "soldier_type": "戦闘機部隊", "count": 5},
+    {"captain": {"name": "AIB", "atk": 14, "dfn": 14, "image": "assets/aib.png", "skill_id": "panzer_charge", "skill_name": "鋼鉄の進撃", "skill_desc": "戦闘中防御50"}, "soldier_type": "戦車部隊", "count": 7},
+    {"captain": {"name": "ゼウス", "atk": 20, "dfn": 15, "image": "assets/zeusu.png", "skill_id": "thunder_bolt", "skill_name": "全能なる神の雷霆", "skill_desc": "2発同時に出る"}, "soldier_type": "ミサイル部隊", "count": 3},
+    {"captain": {"name": "カエサル", "atk": 12, "dfn": 18, "image": "assets/kaesaru.png", "skill_id": "eagle_eye", "skill_name": "賽は投げられた", "skill_desc": "射程補正1.5倍"}, "soldier_type": "戦車部隊", "count": 5},
+    {"captain": {"name": "ナポレオン", "atk": 16, "dfn": 10, "image": "assets/naporeon.png", "skill_id": "artillery_god", "skill_name": "皇帝の飽和砲撃", "skill_desc": "射程補正1.3倍攻撃威力アップ"}, "soldier_type": "砲撃部隊", "count": 8},
+    {"captain": {"name": "ハンニバル", "atk": 15, "dfn": 12, "image": "assets/hannibaru.png", "skill_id": "alps_tactics", "skill_name": "アルプス越えの奇襲", "skill_desc": "戦闘中防御60回復3"}, "soldier_type": "戦闘機部隊", "count": 4},
+    {"captain": {"name": "チンギスハーン", "atk": 14, "dfn": 8, "image": "assets/tingishun.png", "skill_id": "nomad_arrow", "skill_name": "蒼き狼の騎射", "skill_desc": "射程補正1.4倍"}, "soldier_type": "銃撃部隊", "count": 15},
+    {"captain": {"name": "シバ", "atk": 10, "dfn": 10, "image": "assets/siba.png", "skill_id": "queen_wealth", "skill_name": "シバ王国の財力", "skill_desc": "勝利時領地経済UP"}, "soldier_type": "銃撃部隊", "count": 10},
+    {"captain": {"name": "マリー", "atk": 13, "dfn": 14, "image": "assets/mary.png", "skill_id": "royal_splendor", "skill_name": "宮廷の華麗なる威風", "skill_desc": "勝利時領地経済UP"}, "soldier_type": "砲撃部隊", "count": 6},
+    {"captain": {"name": "クレオパトラ", "atk": 17, "dfn": 11, "image": "assets/kure.png", "skill_id": "alluring_charm", "skill_name": "王妃の誘惑", "skill_desc": "敵の火力低下 0.7倍"}, "soldier_type": "戦車部隊", "count": 4},
 ]
 # 💡 【新設】ゲームデータを初期値にリセットする関数
 def reset_game():
@@ -926,18 +926,18 @@ else:
                 let dfn_skill = "{dfn_skill_id}";
                 let atk_skill = "{atk_skill_id}";
 
-                // 🛡️ 1. HP系スキルの適用 (スパルタの壁+80, 装甲突撃+50, アルプス戦術+60, 聖なる祈り+40)
+                // 🛡️ 1. HP系スキルの適用 (スパルタの壁+80, 装甲突撃+50, アルプス戦術+60, 聖なる祈り+60)
                 let dfn_boost = 0;
                 if (dfn_skill === "spartan_wall") dfn_boost = 80;
                 else if (dfn_skill === "panzer_charge") dfn_boost = 50;
                 else if (dfn_skill === "alps_tactics") dfn_boost = 60;
-                else if (dfn_skill === "holy_prayer") dfn_boost = 40;
+                else if (dfn_skill === "holy_prayer") dfn_boost = 60;
 
                 let atk_boost = 0;
                 if (atk_skill === "spartan_wall") atk_boost = 80;
                 else if (atk_skill === "panzer_charge") atk_boost = 50;
                 else if (atk_skill === "alps_tactics") atk_boost = 60;
-                else if (atk_skill === "holy_prayer") atk_boost = 40;
+                else if (atk_skill === "holy_prayer") atk_boost = 60;
 
                 let dfn_max = {dfn_max_hp} + dfn_boost;
                 let atk_max = {atk_max_hp} + atk_boost;
@@ -1048,12 +1048,12 @@ else:
                     // 射撃生成
                     if(Math.random() < dfn_fire_rate && dfn_hp > 0) {{
                         // 万雷の轟き・雷霆の如くは弾が黄色く、2発同時に出る特性
-                        let isThunder = (dfn_skill === "thunder_bolt" || dfn_skill === "thunder_bolt_ai");
+                        let isThunder = (dfn_skill === "thunder_bolt" || dfn_skill === "lightning_strike");
                         bullets.push({{x: dfn_x + 25, y: dfn_y - (isThunder?8:0), vx: 8, side: 'dfn', color: isThunder?'#fff700':'{dfn_color}'}});
                         if(isThunder) bullets.push({{x: dfn_x + 25, y: dfn_y + 8, vx: 8, side: 'dfn', color: '#fff700'}});
                     }}
                     if(Math.random() < atk_fire_rate && atk_hp > 0) {{
-                        let isThunder = (atk_skill === "thunder_bolt" || atk_skill === "thunder_bolt_ai");
+                        let isThunder = (atk_skill === "thunder_bolt" || atk_skill === "lightning_strike");
                         bullets.push({{x: atk_x - 25, y: atk_y - (isThunder?8:0), vx: -8, side: 'atk', color: isThunder?'#fff700':'{atk_color}'}});
                         if(isThunder) bullets.push({{x: atk_x - 25, y: atk_y + 8, vx: -8, side: 'atk', color: '#fff700'}});
                     }}
