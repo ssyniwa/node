@@ -577,7 +577,7 @@ else:
             unit_cost = SOLDIER_TYPES[selected_soldier]["cost"]
             max_buy = st.session_state.country_data["プレイヤー(赤)"]["gold"] // unit_cost
             
-            if max_buy == 0: st.error("資金不足でこの兵種は雇用できません")
+            if max_buy < 1: st.error("資金不足でこの兵種は雇用できません")
             else:
                 troop_count = st.slider("編成する兵数:", min_value=1, max_value=max_buy, value=1)
                 player_nodes = [k for k, v in st.session_state.nodes.items() if v["owner"] == "プレイヤー(赤)"]
