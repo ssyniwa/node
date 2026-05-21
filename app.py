@@ -59,8 +59,8 @@ def reset_game():
     st.session_state.logs = ["🎮 ゲームが初期化されました！新たな戦いが始まります。"]
     st.session_state.country_data = {
         "プレイヤー(赤)": {"gold": 500, "captains": []},
-        "AI(青)": {"gold": 300, "captains": []},
-        "AI(緑)": {"gold": 300, "captains": []},
+        "AI(青)": {"gold": 500, "captains": []},
+        "AI(緑)": {"gold": 500, "captains": []},
     }
     
     st.session_state.units = {}
