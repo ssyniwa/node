@@ -232,7 +232,7 @@ def run_ai_turn():
         adjacent_nodes = st.session_state.nodes[current_loc]["adjacent"]
 
         # 70%の確率で隣接領地への進軍を試みる
-        if adjacent_nodes and random.random() < 0.9:
+        if adjacent_nodes and random.random() < 1.0:
             target_node = random.choice(adjacent_nodes)
             
             # 【衝突検知】移動先に「自分（例:AI(青)）とは異なる勢力」がいるかチェック
