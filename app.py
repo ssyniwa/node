@@ -478,7 +478,7 @@ else:
             st.markdown("### 📜 戦況ログ")
             for log in reversed(st.session_state.logs[-10:]): # 直近10件
                 st.caption(log)
-
+        
         # --- 2. メインエリア領域（フェーズごとの画面制御） ---
         st.title("🗺️ 盤面マップ・戦況報告")
 
@@ -497,7 +497,70 @@ else:
             st.write(f"**未配属の隊長:** {', '.join(free_caps) if free_caps else 'なし'}")
             
         st.divider()
+        # ==============================================================================
+        # 📚 メイン画面：攻略ヘルプ・将軍強さ目安表セクション
+        # ==============================================================================
+        st.write("---")  # ゲーム画面と区切るための水平線
 
+        # プレイヤーがクリックして開閉できるアコーディオン（折りたたみ表示）を設置
+        with st.expander("📚 【攻略ヘルプ】登場する将軍たちの総合評価・強さの目安", expanded=False):
+            st.markdown("""
+            本ゲームに登場する将軍たちの能力特性と、総合的な強さの判定ランクです。
+            戦術の構築や、敵国が招聘した強力な将軍への対策にご活用ください。
+            """)
+            
+            # 横並びのタブを作成して、プレイヤー用とAI用を綺麗に切り替え
+            tab_player, tab_ai = st.tabs(["👑 プレイヤー将軍 (CAPTAIN_POOL)", "🤖 敵国AI部隊 (AI_UNIT_POOL)"])
+            
+            with tab_player:
+                st.caption("💡 プレイヤー将軍の評価：初期兵科等の『兵の情報』を除外し、将軍自身のステータス(atk/dfn)と『スキル効果』のみから純粋な戦闘ポテンシャルを算出したものです。")
+                
+                # ソースコード内の CAPTAIN_POOL からリアルタイムにデータを抽出・成形
+                player_table_data = []
+                for c in CAPTAIN_POOL:
+                    # 指定された判定ルールに基づくランクマッピング
+                    rank = "B"
+                    if c["name"] in ["レオニダス", "しずく"]: rank = "SS"
+                    elif c["name"] in ["ノブナガ", "アレクサンダー", "ケイト"]: rank = "S"
+                    elif c["name"] in ["ジャンヌ", "あいり"]: rank = "A"
+                    elif c["name"] in ["みつば"]: rank = "C"
+                    
+                    player_table_data.append({
+                        "将軍名": c["name"],
+                        "攻撃力 (atk)": c["atk"],
+                        "防御力 (dfn)": c["dfn"],
+                        "固有スキル名": c["skill_name"],
+                        "スキル効果説明": c["skill_desc"],
+                        "総合評価": rank
+                    })
+                
+                # プレイヤーが列をクリックして「攻撃力の高い順」等にソートできるインタラクティブな表
+                st.dataframe(player_table_data, use_container_width=True, hide_index=True)
+
+            with tab_ai:
+                st.caption("💡 AI部隊の評価：将軍のステータス・スキルに加え、初めから統率している『初期兵科のコスト』や『初期兵力』の厚みまで全てを網羅した、総合的な危険度判定です。")
+                
+                ai_table_data = []
+                for u in AI_UNIT_POOL:
+                    c = u["captain"]
+                    rank = "B"
+                    if c["name"] in ["ゼウス"]: rank = "SS"
+                    elif c["name"] in ["ナポレオン", "AIA"]: rank = "S"
+                    elif c["name"] in ["カエサル", "ハンニバル", "クレオパトラ"]: rank = "A"
+                    elif c["name"] in ["シバ"]: rank = "C"
+                    
+                    ai_table_data.append({
+                        "将軍名": c["name"],
+                        "初期兵科": u["soldier_type"],
+                        "初期兵力": u["count"],
+                        "攻撃力 (atk)": c["atk"],
+                        "防御力 (dfn)": c["dfn"],
+                        "固有スキル名": c["skill_name"],
+                        "スキル効果説明": c["skill_desc"],
+                        "総合危険度": rank
+                    })
+                
+                st.dataframe(ai_table_data, use_container_width=True, hide_index=True)
 
     # --- 5. フェーズごとのUI処理 ---
 
