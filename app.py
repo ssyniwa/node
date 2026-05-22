@@ -915,11 +915,12 @@ else:
 
                 if sim_dfn_hp <= 0 or sim_atk_hp <= 0:
                     break
-            
-            if sim_dfn_hp <= 0 and sim_atk_hp <= 0:
-                st.session_state.simulated_result = "draw"
-            elif sim_dfn_hp <= 0:
+            if sim_dfn_hp > sim_atk_hp:
+                st.session_state.simulated_result = "dfn_win"
+            elif sim_dfn_hp < sim_atk_hp:
                 st.session_state.simulated_result = "atk_win"
+            elif sim_dfn_hp <= 0 and sim_atk_hp <= 0:
+                st.session_state.simulated_result = "draw"
             else:
                 st.session_state.simulated_result = "dfn_win"
 
