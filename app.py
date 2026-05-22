@@ -921,8 +921,7 @@ else:
                 st.session_state.simulated_result = "atk_win"
             elif sim_dfn_hp <= 0 and sim_atk_hp <= 0:
                 st.session_state.simulated_result = "draw"
-            else:
-                st.session_state.simulated_result = "dfn_win"
+            
 
         # 左右の部隊UI表示
         col_dfn_ui, col_vs, col_atk_ui = st.columns([2, 1, 2])
